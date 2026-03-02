@@ -1,4 +1,5 @@
 "use server";
+export const runtime = 'edge';
 
 import OpenAI from "openai";
 
@@ -42,7 +43,7 @@ export async function generateSellerCopy(formData: {
 
     try {
         const response = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo", // gpt-4o-mini 대신 기본적으로 잘 동작하는 3.5 사용
+            model: "gpt-4o-mini", // 빠르고 성능 좋은 최신 mini 모델로 변경
             messages: [{ role: "user", content: prompt }],
             temperature: 0.7,
             max_tokens: 1000,

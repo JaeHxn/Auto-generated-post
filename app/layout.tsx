@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Outfit, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 
+export const runtime = 'edge';
+
 const outfit = Outfit({
   subsets: ["latin"],
   variable: "--font-outfit",
