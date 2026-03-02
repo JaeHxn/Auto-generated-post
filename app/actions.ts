@@ -1,5 +1,4 @@
 "use server";
-export const runtime = 'edge';
 
 import OpenAI from "openai";
 
