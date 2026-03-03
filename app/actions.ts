@@ -58,8 +58,9 @@ export async function generateSellerCopy(formData: {
         }
 
         const data = await response.json();
-        // Responses API: output_text or output[0].content[0].text
-        const text = data.output_text || data.output?.[0]?.content?.[0]?.text || "";
+        // gpt-5-mini Responses API: output[0]=reasoning, output[1]=message
+        const messageItem = data.output?.find((item: { type: string }) => item.type === "message");
+        const text = messageItem?.content?.[0]?.text || "";
         return { success: true, text };
     } catch (error) {
         console.error("OpenAI API Error:", error);
