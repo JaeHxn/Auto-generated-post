@@ -1,11 +1,5 @@
 "use server";
 
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function generateSellerCopy(formData: {
     birthYear: number;
     gender: string;
@@ -41,16 +35,33 @@ export async function generateSellerCopy(formData: {
 `;
 
     try {
-        const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini", // 빠르고 성능 좋은 최신 mini 모델로 변경
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.7,
-            max_tokens: 1000,
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.7,
+                max_tokens: 1000,
+            }),
         });
 
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("OpenAI API Error:", response.status, errorText);
+            return {
+                success: false,
+                text: "AI 카피 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. (API 키 설정을 확인해주세요)",
+            };
+        }
+
+        const data = await response.json();
         return {
             success: true,
-            text: response.choices[0].message?.content || "",
+            text: data.choices?.[0]?.message?.content || "",
         };
     } catch (error) {
         console.error("OpenAI API Error:", error);
