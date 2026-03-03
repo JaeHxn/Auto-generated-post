@@ -54,7 +54,7 @@ export async function generateSellerCopy(formData: {
             console.error("OpenAI API Error:", response.status, errorText);
             return {
                 success: false,
-                text: "AI 카피 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. (API 키 설정을 확인해주세요)",
+                text: `[DEBUG] HTTP ${response.status} 오류: ${errorText.slice(0, 300)}`,
             };
         }
 
@@ -67,7 +67,7 @@ export async function generateSellerCopy(formData: {
         console.error("OpenAI API Error:", error);
         return {
             success: false,
-            text: "AI 카피 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. (API 키 설정을 확인해주세요)",
+            text: `[DEBUG] 예외 오류: ${String(error).slice(0, 300)}`,
         };
     }
 }
