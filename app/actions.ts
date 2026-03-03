@@ -35,17 +35,16 @@ export async function generateSellerCopy(formData: {
 `;
 
     try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        const response = await fetch("https://api.openai.com/v1/responses", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
             },
             body: JSON.stringify({
-                model: "gpt-4.5-mini",
-                messages: [{ role: "user", content: prompt }],
-                temperature: 0.7,
-                max_tokens: 1000,
+                model: "gpt-5-mini-2025-08-07",
+                input: [{ role: "user", content: prompt }],
+                store: true,
             }),
         });
 
@@ -59,10 +58,9 @@ export async function generateSellerCopy(formData: {
         }
 
         const data = await response.json();
-        return {
-            success: true,
-            text: data.choices?.[0]?.message?.content || "",
-        };
+        // Responses API: output_text or output[0].content[0].text
+        const text = data.output_text || data.output?.[0]?.content?.[0]?.text || "";
+        return { success: true, text };
     } catch (error) {
         console.error("OpenAI API Error:", error);
         return {
