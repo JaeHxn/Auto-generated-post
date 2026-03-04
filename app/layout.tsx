@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Outfit, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
+import AuthProvider from "./providers";
 
-export const runtime = 'edge';
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -38,13 +38,15 @@ export default function RootLayout({
         ></script>
       </head>
       <body className={`${outfit.variable} ${notoSansKR.variable} font-sans`}>
-        {/* 앰비언트 백그라운드 애니메이션 */}
-        <div className="fixed top-0 left-0 w-full h-full -z-10 overflow-hidden pointer-events-none">
-          <div className="absolute rounded-full blur-[100px] opacity-50 bg-[#ff6f0f] w-[500px] h-[500px] -top-[150px] -left-[150px] animate-[drift_20s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)]" />
-          <div className="absolute rounded-full blur-[100px] opacity-50 bg-[#8c52ff] w-[600px] h-[600px] -bottom-[200px] -right-[200px] animate-[drift_20s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)] delay-[-5s]" />
-          <div className="absolute rounded-full blur-[100px] opacity-30 bg-[#ff007b] w-[400px] h-[400px] top-[30%] left-[40%] animate-[drift_25s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)]" />
-        </div>
-        {children}
+        <AuthProvider>
+          {/* 앰비언트 백그라운드 애니메이션 */}
+          <div className="fixed top-0 left-0 w-full h-full -z-10 overflow-hidden pointer-events-none">
+            <div className="absolute rounded-full blur-[100px] opacity-50 bg-[#ff6f0f] w-[500px] h-[500px] -top-[150px] -left-[150px] animate-[drift_20s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)]" />
+            <div className="absolute rounded-full blur-[100px] opacity-50 bg-[#8c52ff] w-[600px] h-[600px] -bottom-[200px] -right-[200px] animate-[drift_20s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)] delay-[-5s]" />
+            <div className="absolute rounded-full blur-[100px] opacity-30 bg-[#ff007b] w-[400px] h-[400px] top-[30%] left-[40%] animate-[drift_25s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)]" />
+          </div>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

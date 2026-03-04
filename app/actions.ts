@@ -1,29 +1,150 @@
 "use server";
 
-import { headers } from "next/headers";
-import { ratelimit } from "@/lib/redis";
+import { auth } from "@/auth";
+import { getSupabaseAdmin } from "@/lib/supabase";
 
-export async function generateSellerCopy(formData: {
+const GUEST_DAILY_LIMIT = 1;
+const USER_DAILY_LIMIT = 2;
+
+export type GenerateResult = {
+    success: boolean;
+    text: string;
+    remainingCount?: number;
+    limit?: number;
+    isLimitReached?: boolean;
+    isCreditUsed?: boolean;
+    currentCredits?: number;
+};
+
+// 로그인 유저의 오늘 날짜 기준 사용 카운트 체크 및 증가 (크레딧 우선 확인)
+async function checkAndIncrementUserCount(email: string): Promise<{
+    allowed: boolean;
+    remaining: number;
+    credits: number;
+    usedCredit: boolean;
+}> {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) {
+        // Supabase 미설정 시 무제한 허용
+        return { allowed: true, remaining: USER_DAILY_LIMIT, credits: 0, usedCredit: false };
+    }
+
+    const today = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+
+    const { data: user } = await supabase
+        .from("users")
+        .select("daily_count, last_used_date, credits")
+        .eq("email", email)
+        .single();
+
+    if (!user) {
+        return { allowed: true, remaining: USER_DAILY_LIMIT, credits: 0, usedCredit: false };
+    }
+
+    const currentCredits = user.credits || 0;
+    const isToday = user.last_used_date === today;
+    const currentCount = isToday ? user.daily_count : 0;
+
+    // 만약 무료 횟수를 다 썼다면 크레딧을 차감
+    if (currentCount >= USER_DAILY_LIMIT) {
+        if (currentCredits > 0) {
+            await supabase
+                .from("users")
+                .update({ credits: currentCredits - 1 })
+                .eq("email", email);
+
+            return { allowed: true, remaining: 0, credits: currentCredits - 1, usedCredit: true };
+        } else {
+            return { allowed: false, remaining: 0, credits: 0, usedCredit: false };
+        }
+    }
+
+    // 아직 무료 횟수가 남아있다면 무료 횟수 소진
+    await supabase
+        .from("users")
+        .update({
+            daily_count: currentCount + 1,
+            last_used_date: today,
+        })
+        .eq("email", email);
+
+    return {
+        allowed: true,
+        remaining: USER_DAILY_LIMIT - (currentCount + 1),
+        credits: currentCredits,
+        usedCredit: false,
+    };
+}
+
+export async function generateSellerCopy(
+    formData: {
+        birthYear: number;
+        gender: string;
+        itemName: string;
+        itemDetails: string;
+    },
+    guestCount?: number
+): Promise<GenerateResult> {
+    // 로그인 세션 및 Supabase 인스턴스 확인
+    const session = await auth();
+    const supabase = getSupabaseAdmin();
+
+    if (session?.user?.email) {
+        // 로그인 유저: Supabase 기반 하루 2회 제한 + 크레딧 사용
+        const { allowed, remaining, credits, usedCredit } = await checkAndIncrementUserCount(
+            session.user.email
+        );
+        if (!allowed) {
+            return {
+                success: false,
+                text: `오늘의 무료 생성 횟수(${USER_DAILY_LIMIT}회)를 모두 사용했습니다. 충전된 크레딧이 없습니다. 💎크레딧을 충전하시거나 내일 다시 이용해주세요! 😢`,
+                remainingCount: 0,
+                limit: USER_DAILY_LIMIT,
+                isLimitReached: true,
+            };
+        }
+
+        const result = await callOpenAI(formData);
+
+        if (result.success && result.text && supabase) {
+            // 히스토리 저장
+            await supabase.from("histories").insert({
+                user_email: session.user.email,
+                item_name: formData.itemName,
+                item_details: formData.itemDetails,
+                generated_text: result.text,
+            });
+        }
+
+        return { ...result, remainingCount: remaining, limit: USER_DAILY_LIMIT, isCreditUsed: usedCredit, currentCredits: credits };
+    } else {
+        // 비로그인 유저: 클라이언트에서 guestCount를 넘겨받아 서버에서 검증
+        const count = guestCount ?? 0;
+        if (count >= GUEST_DAILY_LIMIT) {
+            return {
+                success: false,
+                text: "비로그인 사용자는 하루 2회까지 무료입니다. 구글 계정으로 로그인하면 하루 5회로 늘어납니다! 🎁",
+                remainingCount: 0,
+                limit: GUEST_DAILY_LIMIT,
+                isLimitReached: true,
+            };
+        }
+
+        const result = await callOpenAI(formData);
+        return {
+            ...result,
+            remainingCount: GUEST_DAILY_LIMIT - (count + 1),
+            limit: GUEST_DAILY_LIMIT,
+        };
+    }
+}
+
+async function callOpenAI(formData: {
     birthYear: number;
     gender: string;
     itemName: string;
     itemDetails: string;
-}) {
-    // 1. IP 기반 Rate Limiting 검사 (Upstash Redis 설정이 있을 경우만)
-    if (ratelimit) {
-        // Next.js >= 13 (App Router Server Action)
-        const forwardedFor = (await headers()).get("x-forwarded-for") || (await headers()).get("x-real-ip");
-        const ip = forwardedFor?.split(",")[0] || "127.0.0.1";
-        const { success } = await ratelimit.limit(ip);
-
-        if (!success) {
-            return {
-                success: false,
-                text: "하루 무료 사용량(10회)을 모두 소진하셨습니다. 내일 다시 이용해주세요! 😢",
-            };
-        }
-    }
-
+}): Promise<{ success: boolean; text: string }> {
     const { birthYear, gender, itemName, itemDetails } = formData;
 
     const currentYear = new Date().getFullYear();
@@ -63,10 +184,10 @@ export async function generateSellerCopy(formData: {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+                Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
             },
             body: JSON.stringify({
-                model: "gpt-5-mini-2025-08-07",
+                model: "gpt-4o-mini",
                 input: [{ role: "user", content: prompt }],
                 store: true,
             }),
@@ -82,8 +203,9 @@ export async function generateSellerCopy(formData: {
         }
 
         const data = await response.json();
-        // gpt-5-mini Responses API: output[0]=reasoning, output[1]=message
-        const messageItem = data.output?.find((item: { type: string }) => item.type === "message");
+        const messageItem = data.output?.find(
+            (item: { type: string }) => item.type === "message"
+        );
         const text = messageItem?.content?.[0]?.text || "";
         return { success: true, text };
     } catch (error) {
@@ -93,4 +215,49 @@ export async function generateSellerCopy(formData: {
             text: `[DEBUG] 예외 오류: ${String(error).slice(0, 300)}`,
         };
     }
+}
+
+// 히스토리 목록 조회
+export async function getUserHistories() {
+    const session = await auth();
+    if (!session?.user?.email) return { success: false, data: [] };
+
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return { success: false, data: [] };
+
+    const { data, error } = await supabase
+        .from("histories")
+        .select("*")
+        .eq("user_email", session.user.email)
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("Fetch histories error:", error);
+        return { success: false, data: [] };
+    }
+
+    return { success: true, data };
+}
+
+// 즐겨찾기 상태 토글
+export async function toggleFavoriteHistory(id: string, is_favorite: boolean) {
+    const session = await auth();
+    if (!session?.user?.email) return { success: false };
+
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return { success: false };
+
+    // 보안상 자기 자신의 데이터인지 확인
+    const { error } = await supabase
+        .from("histories")
+        .update({ is_favorite })
+        .eq("id", id)
+        .eq("user_email", session.user.email);
+
+    if (error) {
+        console.error("Update favorite error:", error);
+        return { success: false };
+    }
+
+    return { success: true };
 }

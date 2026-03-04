@@ -1,20 +1,4 @@
-import { Redis } from '@upstash/redis';
-import { Ratelimit } from '@upstash/ratelimit';
-
-// Create a new Redis instance if environment variables are available
-export const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-    ? new Redis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    })
-    : null;
-
-// Create a new ratelimiter, that allows 10 requests per 24 hours
-export const ratelimit = redis
-    ? new Ratelimit({
-        redis: redis,
-        limiter: Ratelimit.fixedWindow(10, '24 h'),
-        analytics: true,
-        prefix: '@upstash/ratelimit',
-    })
-    : null;
+// Upstash 제거됨 - Rate limiting은 로그인 유저는 Supabase, 비로그인 유저는 클라이언트 LocalStorage로 처리
+// 이 파일은 하위 호환성을 위해 유지 (null export)
+export const redis = null;
+export const ratelimit = null;
