@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const runtime = "edge";
+
 export async function GET() {
     return new NextResponse(
         `
@@ -48,7 +50,7 @@ export async function GET() {
                 <li><strong>환불 불가:</strong> 충전된 크레딧 중 일부라도 사용한 경우, 혹은 결제일로부터 7일이 경과한 경우에는 원칙적으로 환불이 불가능합니다.</li>
                 <li><strong>서비스 장애로 인한 환불:</strong> 당사의 서버 문제 등 귀책사유로 인해 크레딧을 사용할 수 없는 중대한 결함이 발생한 경우, 미사용 잔여 크레딧에 비례하여 부분 환불을 지원할 수 있습니다.</li>
             </ul>
-            <p>환불 요청 및 문의: support@yourdomain.com</p>
+            <p>환불 요청 및 문의: luvsoul@kakao.com</p>
 
             <h2 id="privacy">Privacy Policy (개인정보 보호정책)</h2>
             <p>당사는 서비스 제공을 위해 최소한의 정보만 수집합니다.</p>
