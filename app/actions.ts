@@ -1,11 +1,29 @@
 "use server";
 
+import { headers } from "next/headers";
+import { ratelimit } from "@/lib/redis";
+
 export async function generateSellerCopy(formData: {
     birthYear: number;
     gender: string;
     itemName: string;
     itemDetails: string;
 }) {
+    // 1. IP 기반 Rate Limiting 검사 (Upstash Redis 설정이 있을 경우만)
+    if (ratelimit) {
+        // Next.js >= 13 (App Router Server Action)
+        const forwardedFor = (await headers()).get("x-forwarded-for") || (await headers()).get("x-real-ip");
+        const ip = forwardedFor?.split(",")[0] || "127.0.0.1";
+        const { success } = await ratelimit.limit(ip);
+
+        if (!success) {
+            return {
+                success: false,
+                text: "하루 무료 사용량(10회)을 모두 소진하셨습니다. 내일 다시 이용해주세요! 😢",
+            };
+        }
+    }
+
     const { birthYear, gender, itemName, itemDetails } = formData;
 
     const currentYear = new Date().getFullYear();
@@ -24,10 +42,16 @@ export async function generateSellerCopy(formData: {
 - 상품명: ${itemName}
 - 상품 특이사항 장단점: ${itemDetails}
 
-[요구사항]
+[절대 원칙 - 반드시 지킬 것]
+1. 위 [물품 정보]에 명시된 사항만 사용할 것. 입력에 없는 기능, 스펙, 상태, 부속품 등을 절대 추가하거나 추측하지 말 것.
+2. 단점이나 하자가 언급된 경우 축소하거나 숨기지 말 것. 단, 구매자가 납득할 수 있도록 정중하고 공감 가는 표현으로 전달할 것.
+3. 입력에 없는 정보(예: 원가, 구매처, 사용 빈도, 부속품 존재 여부 등)를 임의로 추가하지 말 것.
+4. 확인되지 않은 사항은 "약", "추정", "아마" 같은 불확실한 표현조차 쓰지 말고 아예 언급하지 말 것.
+
+[작성 요구사항]
 1. 도입부: 정중하고 친근한 인사와 함께 판매자의 긍정적 페르소나 어필 
-2. 본문: 단점은 솔직히 말하면서도 장점(가치)을 극대화시켜 포장할 것
-3. 타겟 추천: 어떤 사람이 사면 좋을지 2~3가지 명확한 타겟 나열
+2. 본문: 입력된 장단점을 사실 그대로 서술하되, 장점(가치)을 극대화하고 단점은 솔직하게 인정하면서도 공감을 유도하는 방식으로 표현
+3. 타겟 추천: 입력된 상품명과 상태를 바탕으로 실제로 이 물건이 어울릴 구매자 2~3가지 나열
 4. 마무리: 쿨거래 및 직거래 조건 등 깔끔하고 매너있는 맺음말
 5. 분위기: 무리한 개그보다는 진정성, 깔끔함, 전문성, 따뜻함을 주는 명품 매장 직원 같은 톤앤매너
 6. 이모지를 적절히 사용하여 글이 지루하지 않게 할 것

@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Copy, Sparkles, CreditCard, Star } from "lucide-react";
+import { Copy, Sparkles, CreditCard, Star, Share2 } from "lucide-react";
 import { generateSellerCopy } from "./actions";
+import confetti from "canvas-confetti";
+import { motion, AnimatePresence } from "framer-motion";
 
 type GachaState = "hidden" | "card_ready" | "card_flipped" | "result";
 
@@ -65,14 +67,47 @@ export default function Home() {
   };
 
   const showResult = (text: string) => {
-    throwConfetti();
+    // Add watermark
+    const watermarkedText = `${text}\n\n---\n🪄 이 글은 Magic Seller AI가 작성했습니다\n👉 https://magic-seller.pages.dev`;
+
+    // Initial big confetti for celebration
+    triggerAwesomeConfetti();
+
     setTimeout(() => {
       setGachaState("result");
-      setResultText(text);
+      setResultText(watermarkedText);
       setTimeout(() => {
         document.getElementById("result-section")?.scrollIntoView({ behavior: "smooth" });
       }, 100);
     }, 600);
+  };
+
+  const triggerAwesomeConfetti = () => {
+    const duration = 3 * 1000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    const interval: any = setInterval(function () {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+      confetti({
+        ...defaults, particleCount,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+        colors: ['#ff416c', '#8c52ff', '#ff6f0f', '#00c9ff', '#ffde00']
+      });
+      confetti({
+        ...defaults, particleCount,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+        colors: ['#ff416c', '#8c52ff', '#ff6f0f', '#00c9ff', '#ffde00']
+      });
+    }, 250);
   };
 
   const handleCardClick = () => {
@@ -89,10 +124,60 @@ export default function Home() {
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(resultText).then(() => {
+    const doCopy = () => {
       setIsCopied(true);
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.8 },
+        colors: ['#ff6f0f', '#ffde00', '#ffffff']
+      });
       setTimeout(() => setIsCopied(false), 3000);
-    });
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(resultText).then(doCopy).catch(() => {
+        // fallback
+        const el = document.createElement("textarea");
+        el.value = resultText;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+        doCopy();
+      });
+    } else {
+      // fallback for HTTP / old browsers
+      const el = document.createElement("textarea");
+      el.value = resultText;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      doCopy();
+    }
+  };
+
+  const shareResult = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Magic Seller AI 프리미엄 판매글",
+          text: resultText,
+        });
+        // Confetti on successful share
+        confetti({
+          particleCount: 100,
+          spread: 100,
+          origin: { y: 0.5 },
+          colors: ['#8c52ff', '#00c9ff', '#ffffff']
+        });
+      } catch (err) {
+        console.error("Share failed", err);
+      }
+    } else {
+      copyToClipboard();
+    }
   };
 
   return (
@@ -229,22 +314,57 @@ export default function Home() {
         )}
 
         {/* 결과 화면 */}
-        {gachaState === "result" && (
-          <section id="result-section" className="mt-10 bg-white/5 backdrop-blur-[20px] border border-white/10 rounded-[28px] p-8 sm:p-10 shadow-[0_10px_40px_rgba(0,0,0,0.4)] animate-slideUp">
-            <h2 className="text-[#ffde00] text-2xl font-bold mt-0 mb-6 flex items-center gap-2">
-              🎉 당신만을 위한 스위트 세일즈 피치
-            </h2>
-            <div className="bg-black/35 p-6 md:p-8 rounded-2xl text-[1.05rem] leading-[1.8] text-[#e6e6e6] font-light border-l-[5px] border-[#ffde00] whitespace-pre-wrap shadow-[inset_0_2px_15px_rgba(0,0,0,0.5)]">
-              {resultText}
-            </div>
-            <button
-              onClick={copyToClipboard}
-              className={`mt-6 w-full p-4 rounded-2xl font-bold text-[1.1rem] transition-all flex items-center justify-center gap-2 ${isCopied ? "bg-[#ff6f0f] text-white border-none" : "bg-transparent border-2 border-[#ff6f0f]/50 text-[#ffa366] hover:bg-[#ff6f0f]/10 hover:border-[#ff6f0f] hover:text-white"}`}
+        <AnimatePresence>
+          {gachaState === "result" && (
+            <motion.section
+              id="result-section"
+              initial={{ opacity: 0, scale: 0.9, y: 50 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ type: "spring", damping: 20, stiffness: 100 }}
+              className="mt-10 bg-white/5 backdrop-blur-[20px] border border-white/10 rounded-[28px] p-8 sm:p-10 shadow-[0_10px_40px_rgba(0,0,0,0.4)]"
             >
-              {isCopied ? "✅ 복사 완료! 당근 앱에 붙여넣으세요" : <><Copy size={20} /> 복사해서 당근마켓에 붙여넣기</>}
-            </button>
-          </section>
-        )}
+              <motion.h2
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-[#ffde00] text-2xl font-bold mt-0 mb-6 flex items-center gap-2"
+              >
+                🎉 당신만을 위한 스위트 세일즈 피치
+              </motion.h2>
+
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5, duration: 0.8 }}
+                className="bg-black/35 p-6 md:p-8 rounded-2xl text-[1.05rem] leading-[1.8] text-[#e6e6e6] font-light border-l-[5px] border-[#ffde00] whitespace-pre-wrap shadow-[inset_0_2px_15px_rgba(0,0,0,0.5)] relative overflow-hidden group"
+              >
+                <div className="absolute top-0 right-0 w-[150%] h-[150%] bg-gradient-to-bl from-white/5 to-transparent skew-x-[-20deg] translate-x-[100%] group-hover:translate-x-[-100%] transition-transform duration-1000 ease-in-out"></div>
+                {resultText}
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                className="mt-6 flex flex-col sm:flex-row gap-4"
+              >
+                <button
+                  onClick={copyToClipboard}
+                  className={`flex-1 p-4 rounded-2xl font-bold text-[1.1rem] transition-all flex items-center justify-center gap-2 transform hover:scale-[1.02] active:scale-[0.98] ${isCopied ? "bg-[#ff6f0f] text-white border-transparent shadow-[0_0_20px_rgba(255,111,15,0.5)]" : "bg-transparent border-2 border-[#ff6f0f]/50 text-[#ffa366] hover:bg-[#ff6f0f]/10 hover:border-[#ff6f0f] hover:text-white"}`}
+                >
+                  {isCopied ? "✅ 복사 완료! 당근에 붙여넣으세요" : <><Copy size={20} /> 복사해서 당근에 붙여넣기</>}
+                </button>
+
+                <button
+                  onClick={shareResult}
+                  className="flex-1 p-4 rounded-2xl font-bold text-[1.1rem] transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-[#8c52ff] to-[#00c9ff] text-white shadow-[0_5px_15px_rgba(140,82,255,0.4)] hover:shadow-[0_8px_25px_rgba(140,82,255,0.6)] transform hover:scale-[1.02] active:scale-[0.98] border-none"
+                >
+                  <Share2 size={20} /> 친구에게 자랑하기
+                </button>
+              </motion.div>
+            </motion.section>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* 구글 애드센스 승인 및 SEO를 위한 고품질 텍스트 섹션 */}
