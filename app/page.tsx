@@ -36,7 +36,7 @@ function incrementGuestCount(): number {
 }
 
 function RouletteModal({ isLoggedIn, onClose, onLogin }: { isLoggedIn: boolean; onClose: () => void; onLogin: () => void; }) {
-  const prizes = ["5회 추가권", "10회 추가권", "😢 꽝", "로그인 상품", "5회 추가권", "🎁 특별상"];
+  const prizes = ["로그인 +1", "로그인 +1", "로그인 +1", "로그인 +1", "로그인 +1", "로그인 +1"];
   const [spinning, setSpinning] = useState(false);
   const [angle, setAngle] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -105,8 +105,8 @@ function RouletteModal({ isLoggedIn, onClose, onLogin }: { isLoggedIn: boolean; 
             <div className="text-6xl">🎉</div>
             <div>
               <div className="text-[#ffde00] text-2xl font-black">당첨!</div>
-              <div className="text-white text-lg font-bold mt-1">{isLoggedIn ? "내일 5회 추가 무료 이용권" : "로그인 보너스 +3회 이용권"}</div>
-              <p className="text-white/60 text-sm mt-2">{isLoggedIn ? "내일 자정에 초기화되어 5회가 지급됩니다." : "구글 로그인하면 하루 5회로 바로 늘어납니다!"}</p>
+              <div className="text-white text-lg font-bold mt-1">{isLoggedIn ? "로그인 보너스 +1회 이용권 🎁" : "로그인 보너스 +1회 이용권 🎁"}</div>
+              <p className="text-white/60 text-sm mt-2">{isLoggedIn ? "내일 다시 무료 횟수가 초기화됩니다." : "구글 로그인하면 하루 2회로 늘어납니다!"}</p>
             </div>
             {!isLoggedIn && (
               <button onClick={onLogin} className="w-full py-4 rounded-2xl font-black text-lg bg-[#4285F4] text-white hover:scale-105 transition-transform shadow-[0_5px_20px_rgba(66,133,244,0.4)]">Google로 로그인하고 5회 받기</button>
