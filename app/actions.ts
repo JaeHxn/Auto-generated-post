@@ -8,7 +8,13 @@ const USER_DAILY_LIMIT = 2;
 
 export type GenerateResult = {
     success: boolean;
-    text: string;
+    data?: {
+        danggeun: string;
+        joonggonara: string;
+        bungae: string;
+        seo_tags: string[];
+    };
+    text?: string; // 에러 메시지나 대체 텍스트용
     remainingCount?: number;
     limit?: number;
     isLimitReached?: boolean;
@@ -25,11 +31,10 @@ async function checkAndIncrementUserCount(email: string): Promise<{
 }> {
     const supabase = getSupabaseAdmin();
     if (!supabase) {
-        // Supabase 미설정 시 무제한 허용
         return { allowed: true, remaining: USER_DAILY_LIMIT, credits: 0, usedCredit: false };
     }
 
-    const today = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+    const today = new Date().toISOString().split("T")[0];
 
     const { data: user } = await supabase
         .from("users")
@@ -45,35 +50,21 @@ async function checkAndIncrementUserCount(email: string): Promise<{
     const isToday = user.last_used_date === today;
     const currentCount = isToday ? user.daily_count : 0;
 
-    // 만약 무료 횟수를 다 썼다면 크레딧을 차감
     if (currentCount >= USER_DAILY_LIMIT) {
         if (currentCredits > 0) {
-            await supabase
-                .from("users")
-                .update({ credits: currentCredits - 1 })
-                .eq("email", email);
-
+            await supabase.from("users").update({ credits: currentCredits - 1 }).eq("email", email);
             return { allowed: true, remaining: 0, credits: currentCredits - 1, usedCredit: true };
         } else {
             return { allowed: false, remaining: 0, credits: 0, usedCredit: false };
         }
     }
 
-    // 아직 무료 횟수가 남아있다면 무료 횟수 소진
     await supabase
         .from("users")
-        .update({
-            daily_count: currentCount + 1,
-            last_used_date: today,
-        })
+        .update({ daily_count: currentCount + 1, last_used_date: today })
         .eq("email", email);
 
-    return {
-        allowed: true,
-        remaining: USER_DAILY_LIMIT - (currentCount + 1),
-        credits: currentCredits,
-        usedCredit: false,
-    };
+    return { allowed: true, remaining: USER_DAILY_LIMIT - (currentCount + 1), credits: currentCredits, usedCredit: false };
 }
 
 export async function generateSellerCopy(
@@ -82,18 +73,17 @@ export async function generateSellerCopy(
         gender: string;
         itemName: string;
         itemDetails: string;
+        imageUrl?: string; // 이미지 분석용 URL (Vision AI)
     },
     guestCount?: number
 ): Promise<GenerateResult> {
-    // 로그인 세션 및 Supabase 인스턴스 확인
     const session = await auth();
     const supabase = getSupabaseAdmin();
 
-    if (session?.user?.email) {
-        // 로그인 유저: Supabase 기반 하루 2회 제한 + 크레딧 사용
-        const { allowed, remaining, credits, usedCredit } = await checkAndIncrementUserCount(
-            session.user.email
-        );
+    let userEmail = session?.user?.email || null;
+
+    if (userEmail) {
+        const { allowed, remaining, credits, usedCredit } = await checkAndIncrementUserCount(userEmail);
         if (!allowed) {
             return {
                 success: false,
@@ -104,21 +94,21 @@ export async function generateSellerCopy(
             };
         }
 
-        const result = await callOpenAI(formData);
+        const result = await callOpenAI(formData, userEmail);
 
-        if (result.success && result.text && supabase) {
-            // 히스토리 저장
+        if (result.success && result.data && supabase) {
             await supabase.from("histories").insert({
-                user_email: session.user.email,
+                user_email: userEmail,
                 item_name: formData.itemName,
                 item_details: formData.itemDetails,
-                generated_text: result.text,
+                generated_text: result.data.danggeun, // 구버전 호환성을 위해 당근마켓 버전 기본 저장
+                platform_versions: result.data, // 전체 JSON 저장
+                seo_tags: result.data.seo_tags
             });
         }
 
         return { ...result, remainingCount: remaining, limit: USER_DAILY_LIMIT, isCreditUsed: usedCredit, currentCredits: credits };
     } else {
-        // 비로그인 유저: 클라이언트에서 guestCount를 넘겨받아 서버에서 검증
         const count = guestCount ?? 0;
         if (count >= GUEST_DAILY_LIMIT) {
             return {
@@ -130,12 +120,8 @@ export async function generateSellerCopy(
             };
         }
 
-        const result = await callOpenAI(formData);
-        return {
-            ...result,
-            remainingCount: GUEST_DAILY_LIMIT - (count + 1),
-            limit: GUEST_DAILY_LIMIT,
-        };
+        const result = await callOpenAI(formData, null);
+        return { ...result, remainingCount: GUEST_DAILY_LIMIT - (count + 1), limit: GUEST_DAILY_LIMIT };
     }
 }
 
@@ -144,76 +130,95 @@ async function callOpenAI(formData: {
     gender: string;
     itemName: string;
     itemDetails: string;
-}): Promise<{ success: boolean; text: string }> {
-    const { birthYear, gender, itemName, itemDetails } = formData;
-
+    imageUrl?: string;
+}, userEmail: string | null): Promise<{ success: boolean; data?: any; text?: string }> {
+    const { birthYear, gender, itemName, itemDetails, imageUrl } = formData;
     const currentYear = new Date().getFullYear();
-    const age = currentYear - birthYear;
-    const ageGroup = Math.floor(age / 10) * 10 + "대";
+    const ageGroup = Math.floor((currentYear - birthYear) / 10) * 10 + "대";
     const genderStr = gender === "female" ? "여성" : "남성";
 
-    const prompt = `
-당신은 중고물품 거래(당근마켓 등)에서 클릭률과 신뢰도를 극대화하는 매력적인 판매글 작성을 돕는 '마케팅 카피라이터'입니다.
-다음 정보를 바탕으로 구매자의 마음을 사로잡는 VIP 감성 판매글을 작성해주세요.
+    const supabase = getSupabaseAdmin();
+    let personaPrompt = "";
 
-[판매자 정보 (신뢰도 형성 목적)]
-- 나이 및 성별: ${ageGroup} ${genderStr} 
+    // 이메일이 있으면 커스텀 페르소나 조회
+    if (userEmail && supabase) {
+        const { data: persona } = await supabase.from("user_personas").select("analyzed_tone").eq("user_email", userEmail).single();
+        if (persona?.analyzed_tone) {
+            personaPrompt = `
+[특별 지시사항: 판매자의 고유 말투 페르소나 적용]
+다음은 사용자의 인스타그램/게시글 등에서 추출한 고유한 말투 특징입니다. 이 특징을 1순위로 반영하여 작성해주세요!
+--- 페르소나 분석 결과 ---
+${persona.analyzed_tone}
+--------------------------
+`;
+        }
+    }
+
+    const prompt = `
+당신은 중고물품 거래에서 클릭률과 신뢰도를 극대화하는 매력적인 판매글 작성을 돕는 '마케팅 카피라이터'입니다.
+다음 정보를 바탕으로 구매자의 마음을 사로잡는 판매글을 작성해주세요.
+반드시 JSON 형태로 응답해야 합니다! 응답 키는 "danggeun", "joonggonara", "bungae", "seo_tags" (문자열 배열) 로 해주세요.
+
+[판매자 프로필] 
+나이 및 성별: ${ageGroup} ${genderStr} 
 
 [물품 정보]
 - 상품명: ${itemName}
-- 상품 특이사항 장단점: ${itemDetails}
+- 상품 특이사항: ${itemDetails}
 
-[절대 원칙 - 반드시 지킬 것]
-1. 위 [물품 정보]에 명시된 사항만 사용할 것. 입력에 없는 기능, 스펙, 상태, 부속품 등을 절대 추가하거나 추측하지 말 것.
-2. 단점이나 하자가 언급된 경우 축소하거나 숨기지 말 것. 단, 구매자가 납득할 수 있도록 정중하고 공감 가는 표현으로 전달할 것.
-3. 입력에 없는 정보(예: 원가, 구매처, 사용 빈도, 부속품 존재 여부 등)를 임의로 추가하지 말 것.
-4. 확인되지 않은 사항은 "약", "추정", "아마" 같은 불확실한 표현조차 쓰지 말고 아예 언급하지 말 것.
+${imageUrl ? `(이미지가 첨부되었습니다. 이미지 내의 브랜드, 모델명, 색상, 스크래치 등 상태를 분석하여 글에 자연스럽게 포함시켜 주세요.)` : ""}
 
-[작성 요구사항]
-1. 도입부: 정중하고 친근한 인사와 함께 판매자의 긍정적 페르소나 어필 
-2. 본문: 입력된 장단점을 사실 그대로 서술하되, 장점(가치)을 극대화하고 단점은 솔직하게 인정하면서도 공감을 유도하는 방식으로 표현
-3. 타겟 추천: 입력된 상품명과 상태를 바탕으로 실제로 이 물건이 어울릴 구매자 2~3가지 나열
-4. 마무리: 쿨거래 및 직거래 조건 등 깔끔하고 매너있는 맺음말
-5. 분위기: 무리한 개그보다는 진정성, 깔끔함, 전문성, 따뜻함을 주는 명품 매장 직원 같은 톤앤매너
-6. 이모지를 적절히 사용하여 글이 지루하지 않게 할 것
-7. 짧지 않게, 적당한 긴장감과 스토리텔링이 있는 길이로 작성
+${personaPrompt}
+
+[플랫폼별 톤앤매너 요구사항]
+1. "danggeun" (당근마켓용): 친밀하고 이웃같은 느낌, 직거래 위주, 쿨거래 조건 강조, 이모지 풍부하게.
+2. "joonggonara" (중고나라용): 신뢰감, 명확한 스펙과 상태 설명 우선, 매너있고 전문적인 느낌, 택배 선호 포맷.
+3. "bungae" (번개장터용): 트렌디함, 힙한 말투, 명확한 장단점 피드백, 택배거래 환영 문구.
+
+[공통 요구사항]
+1. 입력/분석에 없는 확인되지 않은 정보(원가, 구매일 등)를 지어내지 말 것.
+2. 단점은 솔직히 인정하되 긍정적인 가치로 포장할 것 (Sweet Sales Pitch).
+3. "seo_tags" 배열에는 상위 노출을 위한 5~8개의 추천 키워드를 담을 것.
 `;
 
+    const messagesContent: any[] = [{ type: "text", text: prompt }];
+
+    // 이미지가 있으면 Vision AI를 위한 객체 추가
+    if (imageUrl) {
+        messagesContent.push({
+            type: "image_url",
+            image_url: { url: imageUrl }
+        });
+    }
+
     try {
-        const response = await fetch("https://api.openai.com/v1/responses", {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
             },
             body: JSON.stringify({
-                model: "gpt-4o-mini",
-                input: [{ role: "user", content: prompt }],
-                store: true,
+                model: "gpt-4o", // Vision + JSON Output 지원하는 모델
+                messages: [{ role: "user", content: messagesContent }],
+                response_format: { type: "json_object" },
+                temperature: 0.7
             }),
         });
 
         if (!response.ok) {
             const errorText = await response.text();
             console.error("OpenAI API Error:", response.status, errorText);
-            return {
-                success: false,
-                text: `[DEBUG] HTTP ${response.status} 오류: ${errorText.slice(0, 300)}`,
-            };
+            return { success: false, text: `[DEBUG] HTTP ${response.status} 오류` };
         }
 
         const data = await response.json();
-        const messageItem = data.output?.find(
-            (item: { type: string }) => item.type === "message"
-        );
-        const text = messageItem?.content?.[0]?.text || "";
-        return { success: true, text };
+        const jsonContent = JSON.parse(data.choices[0].message.content || "{}");
+
+        return { success: true, data: jsonContent };
     } catch (error) {
         console.error("OpenAI API Error:", error);
-        return {
-            success: false,
-            text: `[DEBUG] 예외 오류: ${String(error).slice(0, 300)}`,
-        };
+        return { success: false, text: `[DEBUG] 예외 오류 발생` };
     }
 }
 
@@ -247,7 +252,6 @@ export async function toggleFavoriteHistory(id: string, is_favorite: boolean) {
     const supabase = getSupabaseAdmin();
     if (!supabase) return { success: false };
 
-    // 보안상 자기 자신의 데이터인지 확인
     const { error } = await supabase
         .from("histories")
         .update({ is_favorite })
@@ -260,4 +264,51 @@ export async function toggleFavoriteHistory(id: string, is_favorite: boolean) {
     }
 
     return { success: true };
+}
+
+// 인스타그램 말투 분석 및 저장 액션
+export async function analyzeAndSavePersona(sampleTexts: string[]) {
+    const session = await auth();
+    if (!session?.user?.email) return { success: false, error: "로그인이 필요합니다." };
+
+    const prompt = `
+당신은 최고의 NLP 데이터 분석가이자 카피라이터입니다.
+아래 사용자가 직접 작성한 여러 개의 게시글/문장들을 분석하여, 이 사람의 고유한 "말투, 분위기, 주로 쓰는 이모지 패턴, 문장 종결 어미(음슴체, 존댓말 등), 감성" 등을 파악하세요.
+결과는 페르소나 프롬프트에 직접 주입할 수 있도록 3~4문장으로 명확하고 구체적으로 요약해주세요.
+
+[사용자 작성 글 샘플]
+${sampleTexts.join("\n\n---\n\n")}
+`;
+
+    try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [{ role: "user", content: prompt }]
+            }),
+        });
+
+        const data = await response.json();
+        const analyzedTone = data.choices[0].message.content;
+
+        const supabase = getSupabaseAdmin();
+        if (supabase) {
+            // Upsert 방식으로 저장
+            const { error } = await supabase
+                .from("user_personas")
+                .upsert({ user_email: session.user.email, analyzed_tone: analyzedTone }, { onConflict: "user_email" });
+
+            if (error) console.error("Persona upsert error:", error);
+        }
+
+        return { success: true, analyzedTone };
+    } catch (err) {
+        console.error(err);
+        return { success: false, error: "분석 중 에러가 발생했습니다." };
+    }
 }
