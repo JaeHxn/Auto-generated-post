@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 
 const GUEST_DAILY_LIMIT = 1;
 const USER_DAILY_LIMIT = 2;
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@magicseller.local";
 
 export type GenerateResult = {
     success: boolean;
@@ -29,6 +30,11 @@ async function checkAndIncrementUserCount(email: string): Promise<{
     credits: number;
     usedCredit: boolean;
 }> {
+    // 관리자 계정은 무제한 허용
+    if (email === ADMIN_EMAIL) {
+        return { allowed: true, remaining: 9999, credits: 9999, usedCredit: false };
+    }
+
     const supabase = getSupabaseAdmin();
     if (!supabase) {
         return { allowed: true, remaining: USER_DAILY_LIMIT, credits: 0, usedCredit: false };
