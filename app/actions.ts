@@ -8,10 +8,11 @@ const USER_DAILY_LIMIT = 2;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "luvsoul@kakao.com";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const MIN_COPY_LENGTH = {
-    danggeun: 240,
-    joonggonara: 300,
-    bungae: 220,
+    danggeun: 360,
+    joonggonara: 420,
+    bungae: 320,
 } as const;
+const MIN_CONTENT_BLOCKS = 3; // 기존보다 문단 2개 추가
 
 export type GenerateResult = {
     success: boolean;
@@ -70,16 +71,25 @@ function normalizeGeneratedCopy(raw: any): GeneratedCopy | null {
 }
 
 function isLowQualityCopy(copy: GeneratedCopy): boolean {
+    const blockCount = (text: string) =>
+        text
+            .split(/\n{2,}/)
+            .map((part) => part.trim())
+            .filter(Boolean).length;
+
     return (
         copy.danggeun.length < MIN_COPY_LENGTH.danggeun ||
         copy.joonggonara.length < MIN_COPY_LENGTH.joonggonara ||
         copy.bungae.length < MIN_COPY_LENGTH.bungae ||
+        blockCount(copy.danggeun) < MIN_CONTENT_BLOCKS ||
+        blockCount(copy.joonggonara) < MIN_CONTENT_BLOCKS ||
+        blockCount(copy.bungae) < MIN_CONTENT_BLOCKS ||
         copy.seo_tags.length < 5
     );
 }
 
 function enforceMinLength(text: string, minLength: number): string {
-    const filler = "\n\n작성 내용은 입력해주신 정보만 바탕으로 정리했으며, 확인되지 않은 정보는 임의로 추가하지 않았습니다. 궁금한 점은 메시지로 문의해 주세요.";
+    const filler = "\n\n[추가 안내]\n입력해주신 정보만 기준으로 상세히 정리했으며, 확인되지 않은 내용은 임의로 넣지 않았습니다.\n\n[문의 안내]\n거래 방식이나 확인하고 싶은 점은 메시지로 편하게 문의해 주세요.";
     let next = text.trim();
 
     while (next.length < minLength) {
@@ -128,23 +138,32 @@ function buildFactSafeFallbackCopy(params: {
         ``,
         `${details}`,
         ``,
+        `제품 특징과 거래 조건은 입력해주신 문장을 기반으로 정리했습니다. 읽기 편하도록 핵심 내용을 나눠서 안내드립니다.`,
+        ``,
         `입력해주신 내용을 기준으로 핵심 정보를 읽기 쉽게 정리했습니다. 과장 없이 실제 입력 정보 중심으로 안내드리며, 구매 시기/보증/환불 같은 확인되지 않은 내용은 임의로 추가하지 않았습니다. 관심 있으시면 편하게 문의 주세요.`,
     ].join("\n");
 
     const joonggonaraBase = [
         `[상품명] ${item}`,
+        ``,
         `[입력된 특징] ${details}`,
+        ``,
         `[거래 안내] 입력해주신 내용 기준으로 거래 가능합니다.`,
+        ``,
         `[추가 안내] 본 문구는 제공된 정보만 바탕으로 작성되었으며, 확인되지 않은 세부 정보(보증/환불/구매시기 등)는 포함하지 않았습니다.`,
+        ``,
         `문의 주시면 입력된 정보 범위에서 상세히 안내드리겠습니다.`,
     ].join("\n");
 
     const bungaeBase = [
         `${item} 판매합니다.`,
+        ``,
         `${details}`,
+        ``,
         `핵심만 빠르게 확인하실 수 있도록 정리했습니다. 제공된 정보 범위를 넘는 내용은 넣지 않았고, 확인되지 않은 조건은 별도로 안내드리지 않습니다.`,
+        ``,
         `관심 있으시면 메시지 주세요.`,
-    ].join("\n\n");
+    ].join("\n");
 
     return {
         danggeun: enforceMinLength(danggeunBase, MIN_COPY_LENGTH.danggeun),
@@ -326,6 +345,11 @@ Length constraints (minimum):
 - joonggonara: at least ${MIN_COPY_LENGTH.joonggonara} Korean characters
 - bungae: at least ${MIN_COPY_LENGTH.bungae} Korean characters
 
+Structure constraints:
+- Each platform copy must have at least ${MIN_CONTENT_BLOCKS} content blocks separated by blank lines.
+- Expand by adding at least 2 extra detail blocks compared to a short one-paragraph listing.
+- Recommended block order: 1) item summary 2) condition/detail explanation 3) transaction/contact guidance.
+
 Platform style:
 - danggeun: friendly local-trade vibe, clear condition description, easy-to-read structure.
 - joonggonara: more structured and informative, include condition/details in organized form.
@@ -457,6 +481,7 @@ Quality constraints:
 - danggeun length >= ${MIN_COPY_LENGTH.danggeun}
 - joonggonara length >= ${MIN_COPY_LENGTH.joonggonara}
 - bungae length >= ${MIN_COPY_LENGTH.bungae}
+- each copy must include at least ${MIN_CONTENT_BLOCKS} content blocks separated by blank lines
 - seo_tags count: 5 to 8
 
 Fact safety:

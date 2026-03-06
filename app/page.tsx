@@ -324,7 +324,7 @@ export default function Home() {
   const getCurrentResultText = () => {
     if (!resultData) return errorText;
     const text = resultData[activeTab];
-    return `${text}\n\n---\n🪄 Magic Seller AI 자동 작성 (https://magic-seller.pages.dev)`;
+    return `${text}\n\n---\n🪄 Magic Seller AI 자동 작성 (https://daangn-auto-post.pages.dev/)`;
   };
 
   const copyToClipboard = () => {
