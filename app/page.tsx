@@ -1,4 +1,6 @@
 "use client";
+export const runtime = "edge";
+export const dynamic = "force-dynamic";
 
 import { useState, useRef, useEffect } from "react";
 import { Copy, Sparkles, CreditCard, Star, Share2, LogIn, LogOut, Zap, Camera, Instagram, X } from "lucide-react";
