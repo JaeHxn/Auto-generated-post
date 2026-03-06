@@ -78,6 +78,82 @@ function isLowQualityCopy(copy: GeneratedCopy): boolean {
     );
 }
 
+function enforceMinLength(text: string, minLength: number): string {
+    const filler = "\n\n작성 내용은 입력해주신 정보만 바탕으로 정리했으며, 확인되지 않은 정보는 임의로 추가하지 않았습니다. 궁금한 점은 메시지로 문의해 주세요.";
+    let next = text.trim();
+
+    while (next.length < minLength) {
+        next += filler;
+    }
+
+    return next;
+}
+
+function buildFallbackTags(itemName: string, itemDetails: string, current: string[]): string[] {
+    const seeds = `${itemName} ${itemDetails}`
+        .replace(/[^\p{L}\p{N}\s]/gu, " ")
+        .split(/\s+/)
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 2);
+
+    const deduped = new Set<string>(current.map((tag) => tag.replace(/^#+/, "").trim()).filter(Boolean));
+
+    for (const token of seeds) {
+        if (deduped.size >= 8) break;
+        deduped.add(token);
+    }
+
+    const tags = Array.from(deduped);
+    if (tags.length >= 5) return tags.slice(0, 8);
+
+    const extras = ["중고거래", "직거래", "상세문의", "판매글", "중고장터"];
+    for (const extra of extras) {
+        if (tags.length >= 8) break;
+        if (!tags.includes(extra)) tags.push(extra);
+    }
+
+    return tags.slice(0, 8);
+}
+
+function buildFactSafeFallbackCopy(params: {
+    itemName: string;
+    itemDetails: string;
+    draft: GeneratedCopy;
+}): GeneratedCopy {
+    const item = params.itemName.trim();
+    const details = params.itemDetails.trim();
+
+    const danggeunBase = [
+        `${item} 판매합니다.`,
+        ``,
+        `${details}`,
+        ``,
+        `입력해주신 내용을 기준으로 핵심 정보를 읽기 쉽게 정리했습니다. 과장 없이 실제 입력 정보 중심으로 안내드리며, 구매 시기/보증/환불 같은 확인되지 않은 내용은 임의로 추가하지 않았습니다. 관심 있으시면 편하게 문의 주세요.`,
+    ].join("\n");
+
+    const joonggonaraBase = [
+        `[상품명] ${item}`,
+        `[입력된 특징] ${details}`,
+        `[거래 안내] 입력해주신 내용 기준으로 거래 가능합니다.`,
+        `[추가 안내] 본 문구는 제공된 정보만 바탕으로 작성되었으며, 확인되지 않은 세부 정보(보증/환불/구매시기 등)는 포함하지 않았습니다.`,
+        `문의 주시면 입력된 정보 범위에서 상세히 안내드리겠습니다.`,
+    ].join("\n");
+
+    const bungaeBase = [
+        `${item} 판매합니다.`,
+        `${details}`,
+        `핵심만 빠르게 확인하실 수 있도록 정리했습니다. 제공된 정보 범위를 넘는 내용은 넣지 않았고, 확인되지 않은 조건은 별도로 안내드리지 않습니다.`,
+        `관심 있으시면 메시지 주세요.`,
+    ].join("\n\n");
+
+    return {
+        danggeun: enforceMinLength(danggeunBase, MIN_COPY_LENGTH.danggeun),
+        joonggonara: enforceMinLength(joonggonaraBase, MIN_COPY_LENGTH.joonggonara),
+        bungae: enforceMinLength(bungaeBase, MIN_COPY_LENGTH.bungae),
+        seo_tags: buildFallbackTags(item, details, params.draft.seo_tags),
+    };
+}
+
 async function getSafeSession() {
     try {
         return await auth();
@@ -344,6 +420,14 @@ For "seo_tags":
             if (expanded) {
                 finalCopy = expanded;
             }
+        }
+
+        if (isLowQualityCopy(finalCopy)) {
+            finalCopy = buildFactSafeFallbackCopy({
+                itemName,
+                itemDetails,
+                draft: finalCopy,
+            });
         }
 
         return { success: true, data: finalCopy };
