@@ -7,6 +7,11 @@ const GUEST_DAILY_LIMIT = 1;
 const USER_DAILY_LIMIT = 2;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "luvsoul@kakao.com";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const MIN_COPY_LENGTH = {
+    danggeun: 240,
+    joonggonara: 300,
+    bungae: 220,
+} as const;
 
 export type GenerateResult = {
     success: boolean;
@@ -23,6 +28,55 @@ export type GenerateResult = {
     isCreditUsed?: boolean;
     currentCredits?: number;
 };
+
+type GeneratedCopy = {
+    danggeun: string;
+    joonggonara: string;
+    bungae: string;
+    seo_tags: string[];
+};
+
+function normalizeSeoTags(raw: unknown): string[] {
+    if (!Array.isArray(raw)) return [];
+
+    const deduped = new Set<string>();
+    for (const tag of raw) {
+        const normalized = String(tag ?? "").trim().replace(/^#+/, "");
+        if (!normalized) continue;
+        if (normalized.length > 30) continue;
+        deduped.add(normalized);
+        if (deduped.size >= 8) break;
+    }
+
+    return Array.from(deduped);
+}
+function normalizeGeneratedCopy(raw: any): GeneratedCopy | null {
+    if (!raw || typeof raw !== "object") return null;
+
+    if (
+        typeof raw.danggeun !== "string" ||
+        typeof raw.joonggonara !== "string" ||
+        typeof raw.bungae !== "string"
+    ) {
+        return null;
+    }
+
+    return {
+        danggeun: raw.danggeun.trim(),
+        joonggonara: raw.joonggonara.trim(),
+        bungae: raw.bungae.trim(),
+        seo_tags: normalizeSeoTags(raw.seo_tags),
+    };
+}
+
+function isLowQualityCopy(copy: GeneratedCopy): boolean {
+    return (
+        copy.danggeun.length < MIN_COPY_LENGTH.danggeun ||
+        copy.joonggonara.length < MIN_COPY_LENGTH.joonggonara ||
+        copy.bungae.length < MIN_COPY_LENGTH.bungae ||
+        copy.seo_tags.length < 5
+    );
+}
 
 async function getSafeSession() {
     try {
@@ -151,8 +205,8 @@ async function callOpenAI(formData: {
 }, userEmail: string | null): Promise<{ success: boolean; data?: any; text?: string }> {
     const { birthYear, gender, itemName, itemDetails, imageUrl } = formData;
     const currentYear = new Date().getFullYear();
-    const ageGroup = Math.floor((currentYear - birthYear) / 10) * 10 + "?";
-    const genderStr = gender === "female" ? "?ъ꽦" : "?⑥꽦";
+    const ageGroup = `${Math.floor((currentYear - birthYear) / 10) * 10}s`;
+    const genderStr = gender === "female" ? "female" : "male";
 
     const supabase = getSupabaseAdmin();
     let personaPrompt = "";
@@ -172,30 +226,50 @@ ${persona.analyzed_tone}
     }
 
     const prompt = `
-?뱀떊? 以묎퀬臾쇳뭹 嫄곕옒?먯꽌 ?대┃瑜좉낵 ?좊ː?꾨? 洹밸??뷀븯??留ㅻ젰?곸씤 ?먮ℓ湲 ?묒꽦???뺣뒗 '留덉???移댄뵾?쇱씠???낅땲??
-?ㅼ쓬 ?뺣낫瑜?諛뷀깢?쇰줈 援щℓ?먯쓽 留덉쓬???щ줈?〓뒗 ?먮ℓ湲???묒꽦?댁＜?몄슂.
-諛섎뱶??JSON ?뺥깭濡??묐떟?댁빞 ?⑸땲?? ?묐떟 ?ㅻ뒗 "danggeun", "joonggonara", "bungae", "seo_tags" (臾몄옄??諛곗뿴) 濡??댁＜?몄슂.
+You are a Korean marketplace copywriter for second-hand listings.
+Return ONLY a JSON object with keys:
+"danggeun", "joonggonara", "bungae", "seo_tags".
 
-[?먮ℓ???꾨줈?? 
-?섏씠 諛??깅퀎: ${ageGroup} ${genderStr} 
+Write in natural Korean. Tone must be warm, trustworthy, and detailed.
+All listing text fields must be written in Korean.
 
-[臾쇳뭹 ?뺣낫]
-- ?곹뭹紐? ${itemName}
-- ?곹뭹 ?뱀씠?ы빆: ${itemDetails}
+Hard constraints:
+1) Use ONLY facts from the input. Do not invent any new facts.
+2) Never add unverifiable claims such as:
+   - warranty/refund period
+   - authenticity/certification
+   - purchase date or usage period (unless explicitly given)
+   - reason for sale
+   - shipping option (unless explicitly given)
+   - hidden defects or accessories not mentioned
+3) Keep important details from the user input. Do not over-compress.
+4) Do not use exaggerated hype language or spammy phrases.
 
-${imageUrl ? `(?대?吏媛 泥⑤??섏뿀?듬땲?? ?대?吏 ?댁쓽 釉뚮옖?? 紐⑤뜽紐? ?됱긽, ?ㅽ겕?섏튂 ???곹깭瑜?遺꾩꽍?섏뿬 湲???먯뿰?ㅻ읇寃??ы븿?쒖폒 二쇱꽭??)` : ""}
+Length constraints (minimum):
+- danggeun: at least ${MIN_COPY_LENGTH.danggeun} Korean characters
+- joonggonara: at least ${MIN_COPY_LENGTH.joonggonara} Korean characters
+- bungae: at least ${MIN_COPY_LENGTH.bungae} Korean characters
+
+Platform style:
+- danggeun: friendly local-trade vibe, clear condition description, easy-to-read structure.
+- joonggonara: more structured and informative, include condition/details in organized form.
+- bungae: concise but still detailed, mobile-friendly flow, clear call-to-action.
+
+Input profile:
+- seller age group: ${ageGroup}
+- seller gender: ${genderStr}
+
+Item facts:
+- item name: ${itemName}
+- item details: ${itemDetails}
+${imageUrl ? "- image is attached: you may describe visible condition/appearance only if clearly inferable from the image." : ""}
 
 ${personaPrompt}
 
-[?뚮옯?쇰퀎 ?ㅼ븻留ㅻ꼫 ?붽뎄?ы빆]
-1. "danggeun" (?밴렐留덉폆??: 移쒕??섍퀬 ?댁썐媛숈? ?먮굦, 吏곴굅???꾩＜, 荑④굅??議곌굔 媛뺤“, ?대え吏 ?띾??섍쾶.
-2. "joonggonara" (以묎퀬?섎씪??: ?좊ː媛? 紐낇솗???ㅽ럺怨??곹깭 ?ㅻ챸 ?곗꽑, 留ㅻ꼫?덇퀬 ?꾨Ц?곸씤 ?먮굦, ?앸같 ?좏샇 ?щ㎎.
-3. "bungae" (踰덇컻?ν꽣??: ?몃젋?뷀븿, ?숉븳 留먰닾, 紐낇솗???λ떒???쇰뱶諛? ?앸같嫄곕옒 ?섏쁺 臾멸뎄.
-
-[怨듯넻 ?붽뎄?ы빆]
-1. ?낅젰/遺꾩꽍???녿뒗 ?뺤씤?섏? ?딆? ?뺣낫(?먭?, 援щℓ????瑜?吏?대궡吏 留?寃?
-2. ?⑥젏? ?붿쭅???몄젙?섎릺 湲띿젙?곸씤 媛移섎줈 ?ъ옣??寃?(Sweet Sales Pitch).
-3. "seo_tags" 諛곗뿴?먮뒗 ?곸쐞 ?몄텧???꾪븳 5~8媛쒖쓽 異붿쿇 ?ㅼ썙?쒕? ?댁쓣 寃?
+For "seo_tags":
+- Return 5 to 8 tags as plain strings.
+- No duplicates.
+- Keep tags specific and relevant to the item.
 `;
 
     const messagesContent: any[] = [{ type: "text", text: prompt }];
@@ -223,7 +297,8 @@ ${personaPrompt}
                 model: "gpt-4o", // Vision + JSON Output 吏?먰븯??紐⑤뜽
                 messages: [{ role: "user", content: messagesContent }],
                 response_format: { type: "json_object" },
-                temperature: 0.7
+                temperature: 0.4,
+                max_tokens: 1800,
             }),
         });
 
@@ -248,21 +323,108 @@ ${personaPrompt}
             return { success: false, text: "[DEBUG] AI JSON parse failed" };
         }
 
-        const hasRequiredFields =
-            typeof jsonContent?.danggeun === "string" &&
-            typeof jsonContent?.joonggonara === "string" &&
-            typeof jsonContent?.bungae === "string" &&
-            Array.isArray(jsonContent?.seo_tags);
-
-        if (!hasRequiredFields) {
+        const normalized = normalizeGeneratedCopy(jsonContent);
+        if (!normalized) {
             console.error("OpenAI JSON schema mismatch:", jsonContent);
             return { success: false, text: "[DEBUG] AI JSON schema mismatch" };
         }
 
-        return { success: true, data: jsonContent };
+        let finalCopy = normalized;
+
+        if (isLowQualityCopy(finalCopy)) {
+            const expanded = await expandCopyToMeetQuality({
+                draft: finalCopy,
+                ageGroup,
+                genderStr,
+                itemName,
+                itemDetails,
+                imageAttached: Boolean(imageUrl),
+            });
+
+            if (expanded) {
+                finalCopy = expanded;
+            }
+        }
+
+        return { success: true, data: finalCopy };
     } catch (error) {
         console.error("OpenAI API Error:", error);
         return { success: false, text: `[DEBUG] ?덉쇅 ?ㅻ쪟 諛쒖깮` };
+    }
+}
+
+async function expandCopyToMeetQuality(params: {
+    draft: GeneratedCopy;
+    ageGroup: string;
+    genderStr: string;
+    itemName: string;
+    itemDetails: string;
+    imageAttached: boolean;
+}): Promise<GeneratedCopy | null> {
+    if (!OPENAI_API_KEY) return null;
+
+    const prompt = `
+You are improving Korean second-hand listing copy quality.
+Rewrite the draft to satisfy quality constraints while preserving facts.
+Return ONLY JSON with keys "danggeun", "joonggonara", "bungae", "seo_tags".
+All listing text fields must be written in Korean.
+
+Quality constraints:
+- danggeun length >= ${MIN_COPY_LENGTH.danggeun}
+- joonggonara length >= ${MIN_COPY_LENGTH.joonggonara}
+- bungae length >= ${MIN_COPY_LENGTH.bungae}
+- seo_tags count: 5 to 8
+
+Fact safety:
+- Do not invent warranty/refund/receipt/certification/purchase date/shipping/reason-for-sale details.
+- Use only facts below and draft wording.
+
+Facts:
+- seller age group: ${params.ageGroup}
+- seller gender: ${params.genderStr}
+- item name: ${params.itemName}
+- item details: ${params.itemDetails}
+- image attached: ${params.imageAttached ? "yes" : "no"}
+
+Current draft JSON:
+${JSON.stringify(params.draft)}
+`;
+
+    try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${OPENAI_API_KEY}`,
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [{ role: "user", content: prompt }],
+                response_format: { type: "json_object" },
+                temperature: 0.3,
+                max_tokens: 1800,
+            }),
+        });
+
+        if (!response.ok) {
+            return null;
+        }
+
+        const data = await response.json();
+        const content = data?.choices?.[0]?.message?.content;
+        if (!content || typeof content !== "string") {
+            return null;
+        }
+
+        const parsed = JSON.parse(content);
+        const normalized = normalizeGeneratedCopy(parsed);
+        if (!normalized) return null;
+
+        if (isLowQualityCopy(normalized)) return null;
+
+        return normalized;
+    } catch {
+        return null;
     }
 }
 
@@ -356,4 +518,5 @@ ${sampleTexts.join("\n\n---\n\n")}
         return { success: false, error: "遺꾩꽍 以??먮윭媛 諛쒖깮?덉뒿?덈떎." };
     }
 }
+
 
