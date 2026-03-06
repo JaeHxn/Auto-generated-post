@@ -50,7 +50,7 @@ export default function HistoryModal({ onClose }: { onClose: () => void }) {
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={onClose} />
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-xl clickable" onClick={onClose} />
             <div className="relative z-10 bg-gradient-to-br from-[#1a1030] to-[#0d0720] border border-white/10 rounded-[32px] w-full max-w-3xl max-h-[85vh] flex flex-col shadow-[0_0_80px_rgba(140,82,255,0.4)]">
 
                 <div className="flex items-center justify-between p-6 border-b border-white/10">

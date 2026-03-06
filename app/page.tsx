@@ -61,7 +61,7 @@ function RouletteModal({ isLoggedIn, onClose, onLogin }: { isLoggedIn: boolean; 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-xl clickable" onClick={onClose} />
       <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} className="relative z-10 bg-gradient-to-br from-[#1a1030] to-[#0d0720] border border-white/10 rounded-[32px] p-8 max-w-sm w-full shadow-[0_0_80px_rgba(140,82,255,0.4)] flex flex-col items-center gap-5">
         <button onClick={onClose} className="absolute top-5 right-5 text-white/40 hover:text-white text-2xl">×</button>
         {!revealed ? (
@@ -314,6 +314,13 @@ export default function Home() {
     }
   };
 
+  const handleCardKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleCardClick();
+    }
+  };
+
   const getCurrentResultText = () => {
     if (!resultData) return errorText;
     const text = resultData[activeTab];
@@ -369,7 +376,7 @@ export default function Home() {
               <div className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 border border-white/20">
                 {session?.user?.image && <img src={session.user.image} alt="profile" className="w-7 h-7 rounded-full border border-white/30" />}
                 <span className="text-white/80 text-xs font-semibold hidden sm:block">{session?.user?.name?.split(" ")[0]}</span>
-                <span className="text-[#ffde00] font-bold text-xs ml-2 cursor-pointer hover:underline" onClick={() => setShowPayment(true)}>💳 충전</span>
+                <button type="button" onClick={() => setShowPayment(true)} className="text-[#ffde00] font-bold text-xs ml-2 hover:underline bg-transparent border-0 p-0">💳 충전</button>
                 <button onClick={() => setShowHistory(true)} className="text-white/70 hover:text-[#ffde00] transition-colors ml-2 mr-1" title="보관함">📦 보관함</button>
                 <button onClick={() => signOut()} className="text-white/40 hover:text-white transition-colors ml-1" title="로그아웃"><LogOut size={14} /></button>
               </div>
@@ -475,7 +482,14 @@ export default function Home() {
                 {gachaState === "card_ready" && <div className="animate-[slideUp_0.4s_ease-out]"><p className="text-white text-xl font-bold animate-bounce">👇 카드를 터치하여 결과를 확인하세요 👇</p></div>}
                 {gachaState === "card_flipped" && <div className="animate-[slideUp_0.4s_ease-out]"><p className="text-[#ffde00] text-base font-semibold animate-pulse">🤖 AI가 당신만의 프리미엄 판매글을 작성 중입니다...</p></div>}
               </div>
-              <div className={`relative w-[280px] h-[400px] transform-style-3d transition-transform duration-[900ms] ease-[cubic-bezier(0.175,0.885,0.32,1.275)] ${gachaState === "card_flipped" ? "rotate-y-180" : "cursor-pointer hover:scale-105 hover:rotate-[-2deg]"}`} onClick={handleCardClick}>
+              <div
+                role="button"
+                tabIndex={0}
+                aria-label="카드 열기"
+                className={`clickable relative w-[280px] h-[400px] transform-style-3d transition-transform duration-[900ms] ease-[cubic-bezier(0.175,0.885,0.32,1.275)] ${gachaState === "card_flipped" ? "rotate-y-180" : "hover:scale-105 hover:rotate-[-2deg]"}`}
+                onClick={handleCardClick}
+                onKeyDown={handleCardKeyDown}
+              >
                 <div className="absolute inset-0 w-full h-full backface-hidden rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.7)] border-2 border-white/20 bg-gradient-to-br from-[#120e1f] to-[#1e1438] flex flex-col items-center justify-center overflow-hidden">
                   <div className="absolute inset-[-150%] bg-[conic-gradient(from_0deg,transparent_0_340deg,white_360deg)] animate-[spin_3s_linear_infinite] z-[-1] blur-md opacity-30" />
                   <div className="relative z-10 flex flex-col items-center gap-4">

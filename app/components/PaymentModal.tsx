@@ -108,6 +108,16 @@ export default function PaymentModal({ onClose }: { onClose: () => void }) {
         });
     };
 
+    const handleOptionKeyDown = (
+        e: React.KeyboardEvent<HTMLDivElement>,
+        opt: CreditOption
+    ) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setSelectedOption(opt);
+        }
+    };
+
     return (
         <>
             {isPaymentConfigured && (
@@ -118,7 +128,7 @@ export default function PaymentModal({ onClose }: { onClose: () => void }) {
                 />
             )}
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={onClose} />
+                <div className="absolute inset-0 bg-black/80 backdrop-blur-xl clickable" onClick={onClose} />
                 <div className="relative z-10 bg-gradient-to-br from-[#1a1030] to-[#0d0720] border border-[#ff416c]/30 rounded-[32px] p-8 max-w-sm w-full shadow-[0_0_80px_rgba(255,65,108,0.4)] flex flex-col items-center gap-5">
                     <button onClick={onClose} className="absolute top-5 right-5 text-white/40 hover:text-white text-2xl">
                         <X size={24} />
@@ -146,8 +156,12 @@ export default function PaymentModal({ onClose }: { onClose: () => void }) {
                         {CREDIT_OPTIONS.map((opt) => (
                             <div
                                 key={opt.id}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`${opt.name} 선택`}
                                 onClick={() => setSelectedOption(opt)}
-                                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex justify-between items-center ${selectedOption?.id === opt.id
+                                onKeyDown={(e) => handleOptionKeyDown(e, opt)}
+                                className={`clickable p-4 rounded-2xl border-2 transition-all flex justify-between items-center ${selectedOption?.id === opt.id
                                     ? "border-[#ffde00] bg-[#ffde00]/10 shadow-[0_0_15px_rgba(255,222,0,0.3)]"
                                     : "border-white/10 bg-white/5 hover:bg-white/10"
                                     }`}

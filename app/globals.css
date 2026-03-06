@@ -18,6 +18,54 @@ body {
   min-height: 100vh;
 }
 
+/* Global clickable affordance */
+:where(
+    button,
+    a,
+    select,
+    summary,
+    [role="button"],
+    .clickable
+  ) {
+  cursor: pointer;
+}
+
+@keyframes click-feedback {
+  0% {
+    filter: brightness(1) saturate(1);
+  }
+
+  50% {
+    filter: brightness(1.12) saturate(1.08);
+  }
+
+  100% {
+    filter: brightness(1) saturate(1);
+  }
+}
+
+:where(
+    button,
+    a,
+    [role="button"],
+    .clickable
+  ):not(:disabled):not([aria-disabled="true"]) {
+  transition: filter 0.16s ease, opacity 0.16s ease;
+}
+
+:where(
+    button,
+    a,
+    [role="button"],
+    .clickable
+  ):not(:disabled):not([aria-disabled="true"]):active {
+  animation: click-feedback 0.18s ease-out;
+}
+
+:where(button:disabled, [aria-disabled="true"]) {
+  cursor: not-allowed;
+}
+
 @keyframes drift {
   100% {
     transform: translate(150px, 100px) scale(1.2);
