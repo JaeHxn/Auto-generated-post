@@ -5,7 +5,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 
 const GUEST_DAILY_LIMIT = 1;
 const USER_DAILY_LIMIT = 2;
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@magicseller.local";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "luvsoul@kakao.com";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 export type GenerateResult = {
