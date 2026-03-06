@@ -32,9 +32,17 @@ export type HistoryRow = {
 };
 
 export type PaymentRow = {
-    transaction_id: string;
+    // Schema A (repo SQL)
+    transaction_id?: string;
+    // Schema B (observed on production DB)
+    id?: string;
+    user_id?: string;
+    report_id?: string;
+    stripe_session_id?: string;
+    currency?: string;
+
     user_email: string;
-    amount: string;
+    amount: string | number;
     credits_added: number;
     status: string;
     created_at: string;
