@@ -1,13 +1,14 @@
-﻿import { createClient } from "@supabase/supabase-js";
-import { getServerSession, type NextAuthOptions } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
+﻿import NextAuth from "next-auth";
+import Google from "next-auth/providers/google";
+import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-export const authOptions: NextAuthOptions = {
+export const { handlers, signIn, signOut, auth } = NextAuth({
+    trustHost: true,
     providers: [
-        GoogleProvider({
+        Google({
             clientId: process.env.AUTH_GOOGLE_ID!,
             clientSecret: process.env.AUTH_GOOGLE_SECRET!,
         }),
@@ -58,9 +59,4 @@ export const authOptions: NextAuthOptions = {
     pages: {
         error: "/",
     },
-    secret: process.env.AUTH_SECRET,
-};
-
-export function auth() {
-    return getServerSession(authOptions);
-}
+});
