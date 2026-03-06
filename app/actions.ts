@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { auth } from "@/auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 const GUEST_DAILY_LIMIT = 1;
 const USER_DAILY_LIMIT = 2;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@magicseller.local";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 export type GenerateResult = {
     success: boolean;
@@ -15,7 +16,7 @@ export type GenerateResult = {
         bungae: string;
         seo_tags: string[];
     };
-    text?: string; // 에러 메시지나 대체 텍스트용
+    text?: string; // ?먮윭 硫붿떆吏???泥??띿뒪?몄슜
     remainingCount?: number;
     limit?: number;
     isLimitReached?: boolean;
@@ -23,14 +24,24 @@ export type GenerateResult = {
     currentCredits?: number;
 };
 
-// 로그인 유저의 오늘 날짜 기준 사용 카운트 체크 및 증가 (크레딧 우선 확인)
+async function getSafeSession() {
+    try {
+        return await auth();
+    } catch (error) {
+        // Auth failure should not block guest generation flow.
+        console.error("Auth session read failed:", error);
+        return null;
+    }
+}
+
+// 濡쒓렇???좎????ㅻ뒛 ?좎쭨 湲곗? ?ъ슜 移댁슫??泥댄겕 諛?利앷? (?щ젅???곗꽑 ?뺤씤)
 async function checkAndIncrementUserCount(email: string): Promise<{
     allowed: boolean;
     remaining: number;
     credits: number;
     usedCredit: boolean;
 }> {
-    // 관리자 계정은 무제한 허용
+    // 愿由ъ옄 怨꾩젙? 臾댁젣???덉슜
     if (email === ADMIN_EMAIL) {
         return { allowed: true, remaining: 9999, credits: 9999, usedCredit: false };
     }
@@ -79,11 +90,11 @@ export async function generateSellerCopy(
         gender: string;
         itemName: string;
         itemDetails: string;
-        imageUrl?: string; // 이미지 분석용 URL (Vision AI)
+        imageUrl?: string; // ?대?吏 遺꾩꽍??URL (Vision AI)
     },
     guestCount?: number
 ): Promise<GenerateResult> {
-    const session = await auth();
+    const session = await getSafeSession();
     const supabase = getSupabaseAdmin();
 
     let userEmail = session?.user?.email || null;
@@ -93,7 +104,7 @@ export async function generateSellerCopy(
         if (!allowed) {
             return {
                 success: false,
-                text: `오늘의 무료 생성 횟수(${USER_DAILY_LIMIT}회)를 모두 사용했습니다. 충전된 크레딧이 없습니다. 💎크레딧을 충전하시거나 내일 다시 이용해주세요! 😢`,
+                text: `?ㅻ뒛??臾대즺 ?앹꽦 ?잛닔(${USER_DAILY_LIMIT}??瑜?紐⑤몢 ?ъ슜?덉뒿?덈떎. 異⑹쟾???щ젅?㏃씠 ?놁뒿?덈떎. ?뭿?щ젅?㏃쓣 異⑹쟾?섏떆嫄곕굹 ?댁씪 ?ㅼ떆 ?댁슜?댁＜?몄슂! ?삟`,
                 remainingCount: 0,
                 limit: USER_DAILY_LIMIT,
                 isLimitReached: true,
@@ -107,8 +118,8 @@ export async function generateSellerCopy(
                 user_email: userEmail,
                 item_name: formData.itemName,
                 item_details: formData.itemDetails,
-                generated_text: result.data.danggeun, // 구버전 호환성을 위해 당근마켓 버전 기본 저장
-                platform_versions: result.data, // 전체 JSON 저장
+                generated_text: result.data.danggeun, // 援щ쾭???명솚?깆쓣 ?꾪빐 ?밴렐留덉폆 踰꾩쟾 湲곕낯 ???
+                platform_versions: result.data, // ?꾩껜 JSON ???
                 seo_tags: result.data.seo_tags
             });
         }
@@ -119,7 +130,7 @@ export async function generateSellerCopy(
         if (count >= GUEST_DAILY_LIMIT) {
             return {
                 success: false,
-                text: "비로그인 사용자는 하루 2회까지 무료입니다. 구글 계정으로 로그인하면 하루 5회로 늘어납니다! 🎁",
+                text: `Guest limit reached: ${GUEST_DAILY_LIMIT}/day. Sign in with Google for ${USER_DAILY_LIMIT}/day free usage.`,
                 remainingCount: 0,
                 limit: GUEST_DAILY_LIMIT,
                 isLimitReached: true,
@@ -140,20 +151,20 @@ async function callOpenAI(formData: {
 }, userEmail: string | null): Promise<{ success: boolean; data?: any; text?: string }> {
     const { birthYear, gender, itemName, itemDetails, imageUrl } = formData;
     const currentYear = new Date().getFullYear();
-    const ageGroup = Math.floor((currentYear - birthYear) / 10) * 10 + "대";
-    const genderStr = gender === "female" ? "여성" : "남성";
+    const ageGroup = Math.floor((currentYear - birthYear) / 10) * 10 + "?";
+    const genderStr = gender === "female" ? "?ъ꽦" : "?⑥꽦";
 
     const supabase = getSupabaseAdmin();
     let personaPrompt = "";
 
-    // 이메일이 있으면 커스텀 페르소나 조회
+    // ?대찓?쇱씠 ?덉쑝硫?而ㅼ뒪? ?섎Ⅴ?뚮굹 議고쉶
     if (userEmail && supabase) {
         const { data: persona } = await supabase.from("user_personas").select("analyzed_tone").eq("user_email", userEmail).single();
         if (persona?.analyzed_tone) {
             personaPrompt = `
-[특별 지시사항: 판매자의 고유 말투 페르소나 적용]
-다음은 사용자의 인스타그램/게시글 등에서 추출한 고유한 말투 특징입니다. 이 특징을 1순위로 반영하여 작성해주세요!
---- 페르소나 분석 결과 ---
+[?밸퀎 吏?쒖궗?? ?먮ℓ?먯쓽 怨좎쑀 留먰닾 ?섎Ⅴ?뚮굹 ?곸슜]
+?ㅼ쓬? ?ъ슜?먯쓽 ?몄뒪?洹몃옩/寃뚯떆湲 ?깆뿉??異붿텧??怨좎쑀??留먰닾 ?뱀쭠?낅땲?? ???뱀쭠??1?쒖쐞濡?諛섏쁺?섏뿬 ?묒꽦?댁＜?몄슂!
+--- ?섎Ⅴ?뚮굹 遺꾩꽍 寃곌낵 ---
 ${persona.analyzed_tone}
 --------------------------
 `;
@@ -161,35 +172,35 @@ ${persona.analyzed_tone}
     }
 
     const prompt = `
-당신은 중고물품 거래에서 클릭률과 신뢰도를 극대화하는 매력적인 판매글 작성을 돕는 '마케팅 카피라이터'입니다.
-다음 정보를 바탕으로 구매자의 마음을 사로잡는 판매글을 작성해주세요.
-반드시 JSON 형태로 응답해야 합니다! 응답 키는 "danggeun", "joonggonara", "bungae", "seo_tags" (문자열 배열) 로 해주세요.
+?뱀떊? 以묎퀬臾쇳뭹 嫄곕옒?먯꽌 ?대┃瑜좉낵 ?좊ː?꾨? 洹밸??뷀븯??留ㅻ젰?곸씤 ?먮ℓ湲 ?묒꽦???뺣뒗 '留덉???移댄뵾?쇱씠???낅땲??
+?ㅼ쓬 ?뺣낫瑜?諛뷀깢?쇰줈 援щℓ?먯쓽 留덉쓬???щ줈?〓뒗 ?먮ℓ湲???묒꽦?댁＜?몄슂.
+諛섎뱶??JSON ?뺥깭濡??묐떟?댁빞 ?⑸땲?? ?묐떟 ?ㅻ뒗 "danggeun", "joonggonara", "bungae", "seo_tags" (臾몄옄??諛곗뿴) 濡??댁＜?몄슂.
 
-[판매자 프로필] 
-나이 및 성별: ${ageGroup} ${genderStr} 
+[?먮ℓ???꾨줈?? 
+?섏씠 諛??깅퀎: ${ageGroup} ${genderStr} 
 
-[물품 정보]
-- 상품명: ${itemName}
-- 상품 특이사항: ${itemDetails}
+[臾쇳뭹 ?뺣낫]
+- ?곹뭹紐? ${itemName}
+- ?곹뭹 ?뱀씠?ы빆: ${itemDetails}
 
-${imageUrl ? `(이미지가 첨부되었습니다. 이미지 내의 브랜드, 모델명, 색상, 스크래치 등 상태를 분석하여 글에 자연스럽게 포함시켜 주세요.)` : ""}
+${imageUrl ? `(?대?吏媛 泥⑤??섏뿀?듬땲?? ?대?吏 ?댁쓽 釉뚮옖?? 紐⑤뜽紐? ?됱긽, ?ㅽ겕?섏튂 ???곹깭瑜?遺꾩꽍?섏뿬 湲???먯뿰?ㅻ읇寃??ы븿?쒖폒 二쇱꽭??)` : ""}
 
 ${personaPrompt}
 
-[플랫폼별 톤앤매너 요구사항]
-1. "danggeun" (당근마켓용): 친밀하고 이웃같은 느낌, 직거래 위주, 쿨거래 조건 강조, 이모지 풍부하게.
-2. "joonggonara" (중고나라용): 신뢰감, 명확한 스펙과 상태 설명 우선, 매너있고 전문적인 느낌, 택배 선호 포맷.
-3. "bungae" (번개장터용): 트렌디함, 힙한 말투, 명확한 장단점 피드백, 택배거래 환영 문구.
+[?뚮옯?쇰퀎 ?ㅼ븻留ㅻ꼫 ?붽뎄?ы빆]
+1. "danggeun" (?밴렐留덉폆??: 移쒕??섍퀬 ?댁썐媛숈? ?먮굦, 吏곴굅???꾩＜, 荑④굅??議곌굔 媛뺤“, ?대え吏 ?띾??섍쾶.
+2. "joonggonara" (以묎퀬?섎씪??: ?좊ː媛? 紐낇솗???ㅽ럺怨??곹깭 ?ㅻ챸 ?곗꽑, 留ㅻ꼫?덇퀬 ?꾨Ц?곸씤 ?먮굦, ?앸같 ?좏샇 ?щ㎎.
+3. "bungae" (踰덇컻?ν꽣??: ?몃젋?뷀븿, ?숉븳 留먰닾, 紐낇솗???λ떒???쇰뱶諛? ?앸같嫄곕옒 ?섏쁺 臾멸뎄.
 
-[공통 요구사항]
-1. 입력/분석에 없는 확인되지 않은 정보(원가, 구매일 등)를 지어내지 말 것.
-2. 단점은 솔직히 인정하되 긍정적인 가치로 포장할 것 (Sweet Sales Pitch).
-3. "seo_tags" 배열에는 상위 노출을 위한 5~8개의 추천 키워드를 담을 것.
+[怨듯넻 ?붽뎄?ы빆]
+1. ?낅젰/遺꾩꽍???녿뒗 ?뺤씤?섏? ?딆? ?뺣낫(?먭?, 援щℓ????瑜?吏?대궡吏 留?寃?
+2. ?⑥젏? ?붿쭅???몄젙?섎릺 湲띿젙?곸씤 媛移섎줈 ?ъ옣??寃?(Sweet Sales Pitch).
+3. "seo_tags" 諛곗뿴?먮뒗 ?곸쐞 ?몄텧???꾪븳 5~8媛쒖쓽 異붿쿇 ?ㅼ썙?쒕? ?댁쓣 寃?
 `;
 
     const messagesContent: any[] = [{ type: "text", text: prompt }];
 
-    // 이미지가 있으면 Vision AI를 위한 객체 추가
+    // ?대?吏媛 ?덉쑝硫?Vision AI瑜??꾪븳 媛앹껜 異붽?
     if (imageUrl) {
         messagesContent.push({
             type: "image_url",
@@ -197,15 +208,19 @@ ${personaPrompt}
         });
     }
 
+    if (!OPENAI_API_KEY) {
+        return { success: false, text: "[DEBUG] OPENAI_API_KEY is missing" };
+    }
+
     try {
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+                Authorization: `Bearer ${OPENAI_API_KEY}`,
             },
             body: JSON.stringify({
-                model: "gpt-4o", // Vision + JSON Output 지원하는 모델
+                model: "gpt-4o", // Vision + JSON Output 吏?먰븯??紐⑤뜽
                 messages: [{ role: "user", content: messagesContent }],
                 response_format: { type: "json_object" },
                 temperature: 0.7
@@ -215,22 +230,45 @@ ${personaPrompt}
         if (!response.ok) {
             const errorText = await response.text();
             console.error("OpenAI API Error:", response.status, errorText);
-            return { success: false, text: `[DEBUG] HTTP ${response.status} 오류` };
+            return { success: false, text: `[DEBUG] HTTP ${response.status} ?ㅻ쪟` };
         }
 
         const data = await response.json();
-        const jsonContent = JSON.parse(data.choices[0].message.content || "{}");
+        const content = data?.choices?.[0]?.message?.content;
+        if (!content || typeof content !== "string") {
+            console.error("OpenAI API invalid payload:", data);
+            return { success: false, text: "[DEBUG] Invalid AI payload" };
+        }
+
+        let jsonContent: any;
+        try {
+            jsonContent = JSON.parse(content);
+        } catch (parseError) {
+            console.error("OpenAI JSON parse error:", parseError, content);
+            return { success: false, text: "[DEBUG] AI JSON parse failed" };
+        }
+
+        const hasRequiredFields =
+            typeof jsonContent?.danggeun === "string" &&
+            typeof jsonContent?.joonggonara === "string" &&
+            typeof jsonContent?.bungae === "string" &&
+            Array.isArray(jsonContent?.seo_tags);
+
+        if (!hasRequiredFields) {
+            console.error("OpenAI JSON schema mismatch:", jsonContent);
+            return { success: false, text: "[DEBUG] AI JSON schema mismatch" };
+        }
 
         return { success: true, data: jsonContent };
     } catch (error) {
         console.error("OpenAI API Error:", error);
-        return { success: false, text: `[DEBUG] 예외 오류 발생` };
+        return { success: false, text: `[DEBUG] ?덉쇅 ?ㅻ쪟 諛쒖깮` };
     }
 }
 
-// 히스토리 목록 조회
+// ?덉뒪?좊━ 紐⑸줉 議고쉶
 export async function getUserHistories() {
-    const session = await auth();
+    const session = await getSafeSession();
     if (!session?.user?.email) return { success: false, data: [] };
 
     const supabase = getSupabaseAdmin();
@@ -250,9 +288,9 @@ export async function getUserHistories() {
     return { success: true, data };
 }
 
-// 즐겨찾기 상태 토글
+// 利먭꺼李얘린 ?곹깭 ?좉?
 export async function toggleFavoriteHistory(id: string, is_favorite: boolean) {
-    const session = await auth();
+    const session = await getSafeSession();
     if (!session?.user?.email) return { success: false };
 
     const supabase = getSupabaseAdmin();
@@ -272,17 +310,17 @@ export async function toggleFavoriteHistory(id: string, is_favorite: boolean) {
     return { success: true };
 }
 
-// 인스타그램 말투 분석 및 저장 액션
+// ?몄뒪?洹몃옩 留먰닾 遺꾩꽍 諛?????≪뀡
 export async function analyzeAndSavePersona(sampleTexts: string[]) {
-    const session = await auth();
-    if (!session?.user?.email) return { success: false, error: "로그인이 필요합니다." };
+    const session = await getSafeSession();
+    if (!session?.user?.email) return { success: false, error: "濡쒓렇?몄씠 ?꾩슂?⑸땲??" };
 
     const prompt = `
-당신은 최고의 NLP 데이터 분석가이자 카피라이터입니다.
-아래 사용자가 직접 작성한 여러 개의 게시글/문장들을 분석하여, 이 사람의 고유한 "말투, 분위기, 주로 쓰는 이모지 패턴, 문장 종결 어미(음슴체, 존댓말 등), 감성" 등을 파악하세요.
-결과는 페르소나 프롬프트에 직접 주입할 수 있도록 3~4문장으로 명확하고 구체적으로 요약해주세요.
+?뱀떊? 理쒓퀬??NLP ?곗씠??遺꾩꽍媛?댁옄 移댄뵾?쇱씠?곗엯?덈떎.
+?꾨옒 ?ъ슜?먭? 吏곸젒 ?묒꽦???щ윭 媛쒖쓽 寃뚯떆湲/臾몄옣?ㅼ쓣 遺꾩꽍?섏뿬, ???щ엺??怨좎쑀??"留먰닾, 遺꾩쐞湲? 二쇰줈 ?곕뒗 ?대え吏 ?⑦꽩, 臾몄옣 醫낃껐 ?대?(?뚯뒾泥? 議대뙎留???, 媛먯꽦" ?깆쓣 ?뚯븙?섏꽭??
+寃곌낵???섎Ⅴ?뚮굹 ?꾨＼?꾪듃??吏곸젒 二쇱엯?????덈룄濡?3~4臾몄옣?쇰줈 紐낇솗?섍퀬 援ъ껜?곸쑝濡??붿빟?댁＜?몄슂.
 
-[사용자 작성 글 샘플]
+[?ъ슜???묒꽦 湲 ?섑뵆]
 ${sampleTexts.join("\n\n---\n\n")}
 `;
 
@@ -304,7 +342,7 @@ ${sampleTexts.join("\n\n---\n\n")}
 
         const supabase = getSupabaseAdmin();
         if (supabase) {
-            // Upsert 방식으로 저장
+            // Upsert 諛⑹떇?쇰줈 ???
             const { error } = await supabase
                 .from("user_personas")
                 .upsert({ user_email: session.user.email, analyzed_tone: analyzedTone }, { onConflict: "user_email" });
@@ -315,6 +353,7 @@ ${sampleTexts.join("\n\n---\n\n")}
         return { success: true, analyzedTone };
     } catch (err) {
         console.error(err);
-        return { success: false, error: "분석 중 에러가 발생했습니다." };
+        return { success: false, error: "遺꾩꽍 以??먮윭媛 諛쒖깮?덉뒿?덈떎." };
     }
 }
+
