@@ -1,12 +1,42 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import "./globals.css";
+import SiteFooter from "./components/SiteFooter";
 import AuthProvider from "./providers";
 
-export const metadata: Metadata = {
-  title: "Magic Seller - 당근마켓 프리미엄 판매글 자동 생성",
-  description: "당신의 중고물품, 명품처럼 포장해 드립니다 🥕",
-};
+const siteUrl = "https://daangn-auto-post.pages.dev";
 
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Magic Seller | 중고 판매글 AI 자동 작성",
+    template: "%s | Magic Seller",
+  },
+  description:
+    "Magic Seller는 당근마켓, 중고나라, 번개장터용 판매글을 AI로 정리해 주는 웹 서비스입니다. 서비스 소개, 가이드, 개인정보 처리방침, 이용약관, 문의 페이지를 함께 제공합니다.",
+  applicationName: "Magic Seller",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    url: siteUrl,
+    siteName: "Magic Seller",
+    title: "Magic Seller | 중고 판매글 AI 자동 작성",
+    description:
+      "중고 판매글 자동 작성 도구와 서비스 안내, 가이드, 정책 페이지를 함께 제공하는 Magic Seller 공식 사이트입니다.",
+    locale: "ko_KR",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Magic Seller | 중고 판매글 AI 자동 작성",
+    description:
+      "당근마켓, 중고나라, 번개장터용 판매글을 AI로 정리하고 서비스 정책과 운영 정보를 함께 제공하는 공식 사이트입니다.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
 
 export default function RootLayout({
   children,
@@ -23,15 +53,17 @@ export default function RootLayout({
           crossOrigin="anonymous"
         ></script>
       </head>
-      <body className="font-sans">
+      <body className="min-h-screen font-sans">
         <AuthProvider>
-          {/* 앰비언트 백그라운드 애니메이션 */}
-          <div className="fixed top-0 left-0 w-full h-full -z-10 overflow-hidden pointer-events-none">
-            <div className="absolute rounded-full blur-[100px] opacity-50 bg-[#ff6f0f] w-[500px] h-[500px] -top-[150px] -left-[150px] animate-[drift_20s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)]" />
-            <div className="absolute rounded-full blur-[100px] opacity-50 bg-[#8c52ff] w-[600px] h-[600px] -bottom-[200px] -right-[200px] animate-[drift_20s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)] delay-[-5s]" />
-            <div className="absolute rounded-full blur-[100px] opacity-30 bg-[#ff007b] w-[400px] h-[400px] top-[30%] left-[40%] animate-[drift_25s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)]" />
+          <div className="fixed left-0 top-0 -z-10 h-full w-full overflow-hidden pointer-events-none">
+            <div className="absolute -left-[150px] -top-[150px] h-[500px] w-[500px] animate-[drift_20s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)] rounded-full bg-[#ff6f0f] opacity-50 blur-[100px]" />
+            <div className="absolute -bottom-[200px] -right-[200px] h-[600px] w-[600px] animate-[drift_20s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)] rounded-full bg-[#8c52ff] opacity-50 blur-[100px] delay-[-5s]" />
+            <div className="absolute left-[40%] top-[30%] h-[400px] w-[400px] animate-[drift_25s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)] rounded-full bg-[#ff007b] opacity-30 blur-[100px]" />
           </div>
-          {children}
+          <div className="relative z-0 flex min-h-screen flex-col">
+            <div className="flex-1">{children}</div>
+            <SiteFooter />
+          </div>
         </AuthProvider>
       </body>
     </html>

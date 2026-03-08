@@ -10,6 +10,7 @@ import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
 import { signIn, signOut, useSession } from "next-auth/react";
 import HistoryModal from "./HistoryModal";
+import HomeEditorialSections from "./components/HomeEditorialSections";
 import PaymentModal from "./components/PaymentModal";
 type GachaState = "hidden" | "card_ready" | "card_flipped" | "result";
 type Platform = "danggeun" | "joonggonara" | "bungae";
@@ -649,6 +650,10 @@ export default function Home() {
           )}
         </AnimatePresence>
       </main>
+
+      <div className="mx-auto w-full max-w-[650px] px-5 pb-12">
+        <HomeEditorialSections />
+      </div>
 
       <AnimatePresence>
         {showRoulette && <RouletteModal isLoggedIn={isLoggedIn} onClose={() => setShowRoulette(false)} onLogin={() => { setShowRoulette(false); signIn("google"); }} />}
