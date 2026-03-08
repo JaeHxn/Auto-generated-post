@@ -59,6 +59,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
                 if (!existing) {
                     const { error: insertError } = await supabase.from("users").insert({
+                        id: crypto.randomUUID(),
                         email: user.email,
                         name: user.name,
                         image: user.image,

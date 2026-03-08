@@ -3,24 +3,41 @@
 import { useEffect, useState } from "react";
 import { Copy, Star, X, Loader2, Info } from "lucide-react";
 import { getUserHistories, toggleFavoriteHistory } from "./actions";
+import type { HistoryRow } from "@/lib/supabase";
+
+type HistoryItem = HistoryRow & {
+    platform_versions?: HistoryRow["platform_versions"];
+};
 
 export default function HistoryModal({ onClose }: { onClose: () => void }) {
-    const [histories, setHistories] = useState<any[]>([]);
+    const [histories, setHistories] = useState<HistoryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [copiedId, setCopiedId] = useState<string | null>(null);
 
     useEffect(() => {
-        loadHistories();
-    }, []);
+        let active = true;
 
-    const loadHistories = async () => {
-        setLoading(true);
-        const res = await getUserHistories();
-        if (res.success && res.data) {
-            setHistories(res.data);
-        }
-        setLoading(false);
-    };
+        const loadHistories = async () => {
+            await Promise.resolve();
+            if (!active) return;
+
+            setLoading(true);
+            const res = await getUserHistories();
+            if (!active) return;
+
+            if (res.success && res.data) {
+                setHistories(res.data as HistoryItem[]);
+            }
+
+            setLoading(false);
+        };
+
+        void loadHistories();
+
+        return () => {
+            active = false;
+        };
+    }, []);
 
     const handleCopy = (id: string, text: string) => {
         navigator.clipboard.writeText(text).then(() => {
@@ -39,7 +56,7 @@ export default function HistoryModal({ onClose }: { onClose: () => void }) {
         }
     };
 
-    const renderText = (item: any) => {
+    const renderText = (item: HistoryItem) => {
         // Phase 3 신규 JSON 형식인 경우: 당근마켓 버전 우선 노출
         if (item.platform_versions && item.platform_versions.danggeun) {
             return item.platform_versions.danggeun;

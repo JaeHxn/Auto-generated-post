@@ -29,6 +29,13 @@ export type HistoryRow = {
     generated_text: string;
     is_favorite: boolean;
     created_at: string;
+    platform_versions?: {
+        danggeun?: string;
+        joonggonara?: string;
+        bungae?: string;
+        seo_tags?: string[];
+    } | null;
+    seo_tags?: string[] | null;
 };
 
 export type PaymentRow = {

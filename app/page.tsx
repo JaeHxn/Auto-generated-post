@@ -2,17 +2,18 @@
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Copy, Sparkles, CreditCard, Star, Share2, LogIn, LogOut, Zap, Camera, Instagram, X } from "lucide-react";
 import { generateSellerCopy, analyzeAndSavePersona } from "./actions";
+import type { GenerateResult } from "./actions";
 import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
 import { signIn, signOut, useSession } from "next-auth/react";
 import HistoryModal from "./HistoryModal";
 import PaymentModal from "./components/PaymentModal";
-import { createClient } from "@supabase/supabase-js";
 type GachaState = "hidden" | "card_ready" | "card_flipped" | "result";
 type Platform = "danggeun" | "joonggonara" | "bungae";
+type SellerCopyData = NonNullable<GenerateResult["data"]>;
 
 const GUEST_DAILY_LIMIT = 1;
 const USER_DAILY_LIMIT = 2;
@@ -160,13 +161,9 @@ export default function Home() {
 
   const [remainingCount, setRemainingCount] = useState<number | null>(null);
   const [creditsCount, setCreditsCount] = useState<number | null>(null);
-  const [guestCount, setGuestCount] = useState(0);
+  const [guestCount, setGuestCount] = useState(() => getGuestCount());
 
-  const apiResultRef = useRef<any>(null); // 이제 JSON 결과 객체를 담음
-
-  useEffect(() => {
-    setGuestCount(getGuestCount());
-  }, []);
+  const apiResultRef = useRef<SellerCopyData | null>(null); // 이제 JSON 결과 객체를 담음
 
   const currentLimit = isLoggedIn ? USER_DAILY_LIMIT : GUEST_DAILY_LIMIT;
   const currentRemaining = remainingCount !== null ? remainingCount : isLoggedIn ? USER_DAILY_LIMIT : Math.max(0, GUEST_DAILY_LIMIT - guestCount);
@@ -232,7 +229,7 @@ export default function Home() {
     }
 
     // DB(Storage) 업로드 과정을 거치지 않고, Base64 형식의 imagePreview를 바로 활용
-    let base64Image = imagePreview || undefined;
+    const base64Image = imagePreview || undefined;
 
     generateSellerCopy(
       {
@@ -270,7 +267,7 @@ export default function Home() {
     });
   };
 
-  const showResult = (data: any) => {
+  const showResult = (data: SellerCopyData | null) => {
     if (!data) {
       // 에러 처리
       triggerAwesomeConfetti();
@@ -523,7 +520,7 @@ export default function Home() {
                       { id: "danggeun", label: "🥕 당근마켓" },
                       { id: "joonggonara", label: "📦 중고나라" },
                       { id: "bungae", label: "⚡ 번개장터" }
-                    ].map((tab, idx) => (
+                    ].map((tab) => (
                       <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as Platform)}

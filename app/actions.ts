@@ -13,6 +13,7 @@ const MIN_COPY_LENGTH = {
     bungae: 320,
 } as const;
 const MIN_CONTENT_BLOCKS = 3; // 기존보다 문단 2개 추가
+const IMAGE_OBSERVATION_BLOCK = "[사진 관찰]";
 
 export type GenerateResult = {
     success: boolean;
@@ -37,6 +38,24 @@ type GeneratedCopy = {
     seo_tags: string[];
 };
 
+type ModelContentPart =
+    | string
+    | {
+        text?: unknown;
+    };
+
+type OpenAITextPart = {
+    type: "text";
+    text: string;
+};
+
+type OpenAIImagePart = {
+    type: "image_url";
+    image_url: {
+        url: string;
+    };
+};
+
 function normalizeSeoTags(raw: unknown): string[] {
     if (!Array.isArray(raw)) return [];
 
@@ -51,31 +70,132 @@ function normalizeSeoTags(raw: unknown): string[] {
 
     return Array.from(deduped);
 }
-function normalizeGeneratedCopy(raw: any): GeneratedCopy | null {
+function normalizeGeneratedCopy(raw: unknown): GeneratedCopy | null {
     if (!raw || typeof raw !== "object") return null;
 
+    const candidate = raw as Record<string, unknown>;
+
     if (
-        typeof raw.danggeun !== "string" ||
-        typeof raw.joonggonara !== "string" ||
-        typeof raw.bungae !== "string"
+        typeof candidate.danggeun !== "string" ||
+        typeof candidate.joonggonara !== "string" ||
+        typeof candidate.bungae !== "string"
     ) {
         return null;
     }
 
     return {
-        danggeun: raw.danggeun.trim(),
-        joonggonara: raw.joonggonara.trim(),
-        bungae: raw.bungae.trim(),
-        seo_tags: normalizeSeoTags(raw.seo_tags),
+        danggeun: candidate.danggeun.trim(),
+        joonggonara: candidate.joonggonara.trim(),
+        bungae: candidate.bungae.trim(),
+        seo_tags: normalizeSeoTags(candidate.seo_tags),
     };
 }
 
-function isLowQualityCopy(copy: GeneratedCopy): boolean {
+function extractTextFromModelContent(content: unknown): string {
+    if (typeof content === "string") return content;
+    if (!Array.isArray(content)) return "";
+
+    return (content as ModelContentPart[])
+        .map((part) => {
+            if (typeof part === "string") return part;
+            if (part && typeof part === "object" && "text" in part) {
+                const text = (part as { text?: unknown }).text;
+                return typeof text === "string" ? text : "";
+            }
+            return "";
+        })
+        .join("\n")
+        .trim();
+}
+
+function extractJsonPayload(raw: string): unknown | null {
+    const normalized = raw.trim().replace(/^\uFEFF/, "");
+    if (!normalized) return null;
+
+    const tryParse = (value: string) => {
+        try {
+            return JSON.parse(value);
+        } catch {
+            return null;
+        }
+    };
+
+    const direct = tryParse(normalized);
+    if (direct) return direct;
+
+    const fenced = normalized.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim();
+    if (fenced) {
+        const fencedParsed = tryParse(fenced);
+        if (fencedParsed) return fencedParsed;
+    }
+
+    const firstBrace = normalized.indexOf("{");
+    const lastBrace = normalized.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+        const objectSlice = normalized.slice(firstBrace, lastBrace + 1);
+        const slicedParsed = tryParse(objectSlice);
+        if (slicedParsed) return slicedParsed;
+    }
+
+    return null;
+}
+
+function hasImageObservationBlock(text: string): boolean {
+    return text.includes(IMAGE_OBSERVATION_BLOCK);
+}
+
+function hasImageObservationBlocks(copy: GeneratedCopy): boolean {
+    return (
+        hasImageObservationBlock(copy.danggeun) &&
+        hasImageObservationBlock(copy.joonggonara) &&
+        hasImageObservationBlock(copy.bungae)
+    );
+}
+
+function normalizeImageObservationText(text: string): string {
+    const lines = text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => line.replace(/^[-*•\d.)\s]+/, ""))
+        .filter(Boolean);
+
+    const compact = lines.slice(0, 4).join("\n");
+    if (compact) return compact;
+
+    return "첨부된 사진에서 확인되는 외관 상태와 보이는 구성품 범위만 안내드립니다.";
+}
+
+function appendImageObservationBlock(text: string, minLength: number, observation: string): string {
+    if (hasImageObservationBlock(text)) {
+        return enforceMinLength(text, minLength);
+    }
+
+    const block = `${IMAGE_OBSERVATION_BLOCK}\n${normalizeImageObservationText(observation)}`;
+    return enforceMinLength(`${text.trim()}\n\n${block}`, minLength);
+}
+
+function injectImageObservationBlocks(copy: GeneratedCopy, observation: string): GeneratedCopy {
+    return {
+        danggeun: appendImageObservationBlock(copy.danggeun, MIN_COPY_LENGTH.danggeun, observation),
+        joonggonara: appendImageObservationBlock(copy.joonggonara, MIN_COPY_LENGTH.joonggonara, observation),
+        bungae: appendImageObservationBlock(copy.bungae, MIN_COPY_LENGTH.bungae, observation),
+        seo_tags: copy.seo_tags,
+    };
+}
+
+function isLowQualityCopy(copy: GeneratedCopy, imageAttached = false): boolean {
     const blockCount = (text: string) =>
         text
             .split(/\n{2,}/)
             .map((part) => part.trim())
             .filter(Boolean).length;
+
+    const lacksImageBlocks =
+        imageAttached &&
+        (!hasImageObservationBlock(copy.danggeun) ||
+            !hasImageObservationBlock(copy.joonggonara) ||
+            !hasImageObservationBlock(copy.bungae));
 
     return (
         copy.danggeun.length < MIN_COPY_LENGTH.danggeun ||
@@ -84,7 +204,8 @@ function isLowQualityCopy(copy: GeneratedCopy): boolean {
         blockCount(copy.danggeun) < MIN_CONTENT_BLOCKS ||
         blockCount(copy.joonggonara) < MIN_CONTENT_BLOCKS ||
         blockCount(copy.bungae) < MIN_CONTENT_BLOCKS ||
-        copy.seo_tags.length < 5
+        copy.seo_tags.length < 5 ||
+        lacksImageBlocks
     );
 }
 
@@ -129,14 +250,26 @@ function buildFactSafeFallbackCopy(params: {
     itemName: string;
     itemDetails: string;
     draft: GeneratedCopy;
+    imageAttached: boolean;
+    imageObservation?: string;
 }): GeneratedCopy {
     const item = params.itemName.trim();
     const details = params.itemDetails.trim();
+    const imageObservation = params.imageAttached
+        ? [
+            IMAGE_OBSERVATION_BLOCK,
+            normalizeImageObservationText(
+                params.imageObservation ??
+                "첨부된 사진을 기준으로 외관 상태와 구성품 포함 여부를 실제 이미지에서 확인해 주세요.\n사진에서 명확히 보이지 않는 정보는 임의로 추가하지 않았습니다."
+            ),
+        ].join("\n")
+        : "";
 
     const danggeunBase = [
         `${item} 판매합니다.`,
         ``,
         `${details}`,
+        ...(imageObservation ? ["", imageObservation] : []),
         ``,
         `제품 특징과 거래 조건은 입력해주신 문장을 기반으로 정리했습니다. 읽기 편하도록 핵심 내용을 나눠서 안내드립니다.`,
         ``,
@@ -147,6 +280,7 @@ function buildFactSafeFallbackCopy(params: {
         `[상품명] ${item}`,
         ``,
         `[입력된 특징] ${details}`,
+        ...(imageObservation ? ["", imageObservation] : []),
         ``,
         `[거래 안내] 입력해주신 내용 기준으로 거래 가능합니다.`,
         ``,
@@ -159,6 +293,7 @@ function buildFactSafeFallbackCopy(params: {
         `${item} 판매합니다.`,
         ``,
         `${details}`,
+        ...(imageObservation ? ["", imageObservation] : []),
         ``,
         `핵심만 빠르게 확인하실 수 있도록 정리했습니다. 제공된 정보 범위를 넘는 내용은 넣지 않았고, 확인되지 않은 조건은 별도로 안내드리지 않습니다.`,
         ``,
@@ -246,7 +381,7 @@ export async function generateSellerCopy(
     const session = await getSafeSession();
     const supabase = getSupabaseAdmin();
 
-    let userEmail = session?.user?.email || null;
+    const userEmail = session?.user?.email || null;
 
     if (userEmail) {
         const { allowed, remaining, credits, usedCredit } = await checkAndIncrementUserCount(userEmail);
@@ -297,7 +432,7 @@ async function callOpenAI(formData: {
     itemName: string;
     itemDetails: string;
     imageUrl?: string;
-}, userEmail: string | null): Promise<{ success: boolean; data?: any; text?: string }> {
+}, userEmail: string | null): Promise<{ success: boolean; data?: GeneratedCopy; text?: string }> {
     const { birthYear, gender, itemName, itemDetails, imageUrl } = formData;
     const currentYear = new Date().getFullYear();
     const ageGroup = `${Math.floor((currentYear - birthYear) / 10) * 10}s`;
@@ -349,6 +484,10 @@ Structure constraints:
 - Each platform copy must have at least ${MIN_CONTENT_BLOCKS} content blocks separated by blank lines.
 - Expand by adding at least 2 extra detail blocks compared to a short one-paragraph listing.
 - Recommended block order: 1) item summary 2) condition/detail explanation 3) transaction/contact guidance.
+${imageUrl
+            ? `- Because an image is attached, each platform copy MUST include one dedicated block starting with "${IMAGE_OBSERVATION_BLOCK}" and describe only visible facts from the image (appearance, package condition, visible wear, visible components).
+- In the "${IMAGE_OBSERVATION_BLOCK}" block, include at least 2 concrete visual observations (for example: color/print/packaging state/visible text/visible scratches).`
+            : `- Because no image is attached, do not include "${IMAGE_OBSERVATION_BLOCK}" blocks.`}
 
 Platform style:
 - danggeun: friendly local-trade vibe, clear condition description, easy-to-read structure.
@@ -362,7 +501,7 @@ Input profile:
 Item facts:
 - item name: ${itemName}
 - item details: ${itemDetails}
-${imageUrl ? "- image is attached: you may describe visible condition/appearance only if clearly inferable from the image." : ""}
+${imageUrl ? "- image is attached and must be analyzed for visible facts only." : ""}
 
 ${personaPrompt}
 
@@ -372,7 +511,7 @@ For "seo_tags":
 - Keep tags specific and relevant to the item.
 `;
 
-    const messagesContent: any[] = [{ type: "text", text: prompt }];
+    const messagesContent: Array<OpenAITextPart | OpenAIImagePart> = [{ type: "text", text: prompt }];
 
     // ?대?吏媛 ?덉쑝硫?Vision AI瑜??꾪븳 媛앹껜 異붽?
     if (imageUrl) {
@@ -409,17 +548,15 @@ For "seo_tags":
         }
 
         const data = await response.json();
-        const content = data?.choices?.[0]?.message?.content;
-        if (!content || typeof content !== "string") {
+        const content = extractTextFromModelContent(data?.choices?.[0]?.message?.content);
+        if (!content) {
             console.error("OpenAI API invalid payload:", data);
             return { success: false, text: "[DEBUG] Invalid AI payload" };
         }
 
-        let jsonContent: any;
-        try {
-            jsonContent = JSON.parse(content);
-        } catch (parseError) {
-            console.error("OpenAI JSON parse error:", parseError, content);
+        const jsonContent = extractJsonPayload(content);
+        if (!jsonContent) {
+            console.error("OpenAI JSON parse error. Raw content:", content);
             return { success: false, text: "[DEBUG] AI JSON parse failed" };
         }
 
@@ -431,7 +568,7 @@ For "seo_tags":
 
         let finalCopy = normalized;
 
-        if (isLowQualityCopy(finalCopy)) {
+        if (isLowQualityCopy(finalCopy, Boolean(imageUrl))) {
             const expanded = await expandCopyToMeetQuality({
                 draft: finalCopy,
                 ageGroup,
@@ -446,11 +583,23 @@ For "seo_tags":
             }
         }
 
-        if (isLowQualityCopy(finalCopy)) {
+        let imageObservation: string | undefined;
+        if (imageUrl && !hasImageObservationBlocks(finalCopy)) {
+            imageObservation = await describeImageObservation({
+                imageUrl,
+                itemName,
+                itemDetails,
+            });
+            finalCopy = injectImageObservationBlocks(finalCopy, imageObservation);
+        }
+
+        if (isLowQualityCopy(finalCopy, Boolean(imageUrl))) {
             finalCopy = buildFactSafeFallbackCopy({
                 itemName,
                 itemDetails,
                 draft: finalCopy,
+                imageAttached: Boolean(imageUrl),
+                imageObservation,
             });
         }
 
@@ -458,6 +607,64 @@ For "seo_tags":
     } catch (error) {
         console.error("OpenAI API Error:", error);
         return { success: false, text: `[DEBUG] ?덉쇅 ?ㅻ쪟 諛쒖깮` };
+    }
+}
+
+async function describeImageObservation(params: {
+    imageUrl: string;
+    itemName: string;
+    itemDetails: string;
+}): Promise<string> {
+    if (!OPENAI_API_KEY) {
+        return "첨부된 사진에서 확인되는 외관 상태와 보이는 구성품 범위만 안내드립니다.";
+    }
+
+    const prompt = `
+You analyze one marketplace image and write only visible facts in Korean.
+Do not invent hidden details.
+Return plain Korean text in 2~4 short lines.
+Include at least 2 concrete visual observations (for example: color, print text, package condition, visible wear).
+
+Item name: ${params.itemName}
+Item details from seller: ${params.itemDetails}
+`;
+
+    try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${OPENAI_API_KEY}`,
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [
+                    {
+                        role: "user",
+                        content: [
+                            { type: "text", text: prompt },
+                            { type: "image_url", image_url: { url: params.imageUrl } },
+                        ],
+                    },
+                ],
+                temperature: 0.1,
+                max_tokens: 220,
+            }),
+        });
+
+        if (!response.ok) {
+            return "첨부된 사진에서 확인되는 외관 상태와 보이는 구성품 범위만 안내드립니다.";
+        }
+
+        const data = await response.json();
+        const text = extractTextFromModelContent(data?.choices?.[0]?.message?.content);
+        if (!text) {
+            return "첨부된 사진에서 확인되는 외관 상태와 보이는 구성품 범위만 안내드립니다.";
+        }
+
+        return normalizeImageObservationText(text);
+    } catch {
+        return "첨부된 사진에서 확인되는 외관 상태와 보이는 구성품 범위만 안내드립니다.";
     }
 }
 
@@ -483,6 +690,10 @@ Quality constraints:
 - bungae length >= ${MIN_COPY_LENGTH.bungae}
 - each copy must include at least ${MIN_CONTENT_BLOCKS} content blocks separated by blank lines
 - seo_tags count: 5 to 8
+${params.imageAttached
+            ? `- each copy must include one block that starts with "${IMAGE_OBSERVATION_BLOCK}" and only describes visible facts from the image
+- that block must include at least 2 concrete visual observations`
+            : `- do not add "${IMAGE_OBSERVATION_BLOCK}" when no image is attached`}
 
 Fact safety:
 - Do not invent warranty/refund/receipt/certification/purchase date/shipping/reason-for-sale details.
@@ -520,16 +731,18 @@ ${JSON.stringify(params.draft)}
         }
 
         const data = await response.json();
-        const content = data?.choices?.[0]?.message?.content;
-        if (!content || typeof content !== "string") {
+        const content = extractTextFromModelContent(data?.choices?.[0]?.message?.content);
+        if (!content) {
             return null;
         }
 
-        const parsed = JSON.parse(content);
+        const parsed = extractJsonPayload(content);
+        if (!parsed) return null;
+
         const normalized = normalizeGeneratedCopy(parsed);
         if (!normalized) return null;
 
-        if (isLowQualityCopy(normalized)) return null;
+        if (isLowQualityCopy(normalized, params.imageAttached)) return null;
 
         return normalized;
     } catch {

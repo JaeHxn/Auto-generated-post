@@ -70,7 +70,8 @@ async function insertPaymentAudit(params: {
     }
 
     const missingTransactionIdColumn =
-        schemaA.error.code === "42703" && schemaA.error.message.includes("transaction_id");
+        (schemaA.error.code === "42703" || schemaA.error.code === "PGRST204") &&
+        schemaA.error.message.includes("transaction_id");
 
     if (!missingTransactionIdColumn) {
         console.error("payments insert failed (schemaA):", schemaA.error);
@@ -166,6 +167,7 @@ export async function POST(req: Request) {
             const userCreate = await supabase
                 .from("users")
                 .insert({
+                    id: crypto.randomUUID(),
                     email: userEmail,
                     daily_count: 0,
                     last_used_date: null,

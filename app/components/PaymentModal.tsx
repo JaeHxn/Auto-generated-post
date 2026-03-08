@@ -5,6 +5,34 @@ import Script from "next/script";
 import { X, CreditCard, Sparkles } from "lucide-react";
 import { useSession } from "next-auth/react";
 
+type PaddleCheckoutEvent = {
+    name?: string;
+    data?: unknown;
+};
+
+type PaddleInstance = {
+    Environment: {
+        set: (environment: "sandbox" | "production") => void;
+    };
+    Initialize: (options: {
+        token: string;
+        eventCallback?: (event: PaddleCheckoutEvent) => void;
+    }) => void;
+    Checkout: {
+        open: (options: {
+            items: Array<{ priceId: string; quantity: number }>;
+            customer: { email: string };
+            customData: { userEmail: string; creditsToAdd: number };
+        }) => void;
+    };
+};
+
+declare global {
+    interface Window {
+        Paddle?: PaddleInstance;
+    }
+}
+
 type CreditOption = {
     id: string;
     name: string;
@@ -43,7 +71,7 @@ const CREDIT_OPTIONS: CreditOption[] = [
 export default function PaymentModal({ onClose }: { onClose: () => void }) {
     const { data: session } = useSession();
     const [selectedOption, setSelectedOption] = useState<CreditOption | null>(CREDIT_OPTIONS[0] ?? null);
-    const [paddle, setPaddle] = useState<any>(null);
+    const [paddle, setPaddle] = useState<PaddleInstance | null>(null);
 
     const isPaymentConfigured = clientToken.length > 0 && CREDIT_OPTIONS.length > 0;
     const [isInitializing, setIsInitializing] = useState(isPaymentConfigured);
@@ -54,14 +82,11 @@ export default function PaymentModal({ onClose }: { onClose: () => void }) {
             return;
         }
 
-        // @ts-ignore
         if (window.Paddle) {
-            // @ts-ignore
             window.Paddle.Environment.set(environment);
-            // @ts-ignore
             window.Paddle.Initialize({
                 token: clientToken,
-                eventCallback: function (data: any) {
+                eventCallback(data: PaddleCheckoutEvent) {
                     if (data.name === "checkout.completed") {
                         console.log("Paddle Checkout Completed!", data.data);
                         onClose();
@@ -69,7 +94,6 @@ export default function PaymentModal({ onClose }: { onClose: () => void }) {
                 },
             });
 
-            // @ts-ignore
             setPaddle(window.Paddle);
             setIsInitializing(false);
         }

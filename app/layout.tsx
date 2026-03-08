@@ -1,20 +1,6 @@
 import type { Metadata } from "next";
-import { Outfit, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "./providers";
-
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  variable: "--font-outfit",
-  weight: ["300", "400", "600", "800"],
-});
-
-const notoSansKR = Noto_Sans_KR({
-  subsets: ["latin"],
-  variable: "--font-noto-sans-kr",
-  weight: ["300", "400", "500", "700", "900"],
-});
 
 export const metadata: Metadata = {
   title: "Magic Seller - 당근마켓 프리미엄 판매글 자동 생성",
@@ -37,7 +23,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         ></script>
       </head>
-      <body className={`${outfit.variable} ${notoSansKR.variable} font-sans`}>
+      <body className="font-sans">
         <AuthProvider>
           {/* 앰비언트 백그라운드 애니메이션 */}
           <div className="fixed top-0 left-0 w-full h-full -z-10 overflow-hidden pointer-events-none">
