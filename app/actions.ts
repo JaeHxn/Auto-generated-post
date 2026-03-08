@@ -13,7 +13,12 @@ const MIN_COPY_LENGTH = {
     bungae: 320,
 } as const;
 const MIN_CONTENT_BLOCKS = 3; // 기존보다 문단 2개 추가
-const IMAGE_OBSERVATION_BLOCK = "[사진 관찰]";
+const TEMPLATE_MARKER_REGEX = /\[(?:사진 관찰|추가 안내|문의 안내|입력된 특징|거래 안내|상품명)\]/;
+const META_COPY_REGEX =
+    /입력해주신 내용|읽기 쉽게 정리|안내드립니다|핵심 정보를|제공된 정보|상세히 정리|문의 주시면 입력된 정보 범위|본 문구는|기준으로 정리했습니다/;
+const VISUAL_CUE_REGEX = /사진|이미지|보이는|확인되는|외관|라벨|색상|포장|박스|구성품|스크래치|기스|찍힘|오염|패키지/;
+const IMAGE_ANALYSIS_FAILURE_REGEX = /확인(?:되는)? 정보가 없|판단이 어렵|식별이 어렵|명확하지 않|알 수 없|불분명|사진이 흐릿|분석 실패/;
+const EMPTY_IMAGE_RESPONSE_REGEX = /^["']?\s*(?:없음|없습니다|none|null)?\s*["']?$/i;
 
 export type GenerateResult = {
     success: boolean;
@@ -140,62 +145,92 @@ function extractJsonPayload(raw: string): unknown | null {
     return null;
 }
 
-function hasImageObservationBlock(text: string): boolean {
-    return text.includes(IMAGE_OBSERVATION_BLOCK);
+function getContentBlocks(text: string): string[] {
+    return text
+        .split(/\n{2,}/)
+        .map((part) => part.trim())
+        .filter(Boolean);
 }
 
-function hasImageObservationBlocks(copy: GeneratedCopy): boolean {
-    return (
-        hasImageObservationBlock(copy.danggeun) &&
-        hasImageObservationBlock(copy.joonggonara) &&
-        hasImageObservationBlock(copy.bungae)
-    );
+function containsTemplatedCopy(text: string): boolean {
+    return TEMPLATE_MARKER_REGEX.test(text) || META_COPY_REGEX.test(text);
 }
 
 function normalizeImageObservationText(text: string): string {
+    const normalized = text.trim().replace(/\s+/g, " ");
+    if (!normalized || EMPTY_IMAGE_RESPONSE_REGEX.test(normalized) || IMAGE_ANALYSIS_FAILURE_REGEX.test(normalized)) {
+        return "";
+    }
+
     const lines = text
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter(Boolean)
         .map((line) => line.replace(/^[-*•\d.)\s]+/, ""))
+        .map((line) => line.replace(/\s+/g, " "))
         .filter(Boolean);
 
-    const compact = lines.slice(0, 4).join("\n");
+    const compact = lines
+        .slice(0, 4)
+        .map((line) => (/[\.\!\?]$/.test(line) ? line : `${line}.`))
+        .join(" ")
+        .trim();
+
     if (compact) return compact;
 
-    return "첨부된 사진에서 확인되는 외관 상태와 보이는 구성품 범위만 안내드립니다.";
+    return "";
 }
 
-function appendImageObservationBlock(text: string, minLength: number, observation: string): string {
-    if (hasImageObservationBlock(text)) {
+function buildImageObservationParagraph(observation: string): string {
+    const normalized = normalizeImageObservationText(observation);
+    if (!normalized) return "";
+    if (/^(사진|이미지)/.test(normalized)) return normalized;
+
+    return `사진으로 보면 ${normalized}`;
+}
+
+function hasVisualCue(text: string): boolean {
+    return VISUAL_CUE_REGEX.test(text);
+}
+
+function hasVisualCuesInAllCopies(copy: GeneratedCopy): boolean {
+    return hasVisualCue(copy.danggeun) && hasVisualCue(copy.joonggonara) && hasVisualCue(copy.bungae);
+}
+
+function insertParagraphBeforeLast(text: string, paragraph: string): string {
+    const blocks = getContentBlocks(text);
+    if (!paragraph.trim()) return text.trim();
+    if (blocks.length === 0) return paragraph.trim();
+
+    const insertIndex = blocks.length >= 2 ? blocks.length - 1 : blocks.length;
+    blocks.splice(insertIndex, 0, paragraph.trim());
+    return blocks.join("\n\n").trim();
+}
+
+function appendImageObservationParagraph(text: string, minLength: number, observation: string): string {
+    const paragraph = buildImageObservationParagraph(observation);
+    if (!paragraph || hasVisualCue(text)) {
         return enforceMinLength(text, minLength);
     }
 
-    const block = `${IMAGE_OBSERVATION_BLOCK}\n${normalizeImageObservationText(observation)}`;
-    return enforceMinLength(`${text.trim()}\n\n${block}`, minLength);
+    return enforceMinLength(insertParagraphBeforeLast(text, paragraph), minLength);
 }
 
-function injectImageObservationBlocks(copy: GeneratedCopy, observation: string): GeneratedCopy {
+function injectImageObservationParagraphs(copy: GeneratedCopy, observation: string): GeneratedCopy {
     return {
-        danggeun: appendImageObservationBlock(copy.danggeun, MIN_COPY_LENGTH.danggeun, observation),
-        joonggonara: appendImageObservationBlock(copy.joonggonara, MIN_COPY_LENGTH.joonggonara, observation),
-        bungae: appendImageObservationBlock(copy.bungae, MIN_COPY_LENGTH.bungae, observation),
+        danggeun: appendImageObservationParagraph(copy.danggeun, MIN_COPY_LENGTH.danggeun, observation),
+        joonggonara: appendImageObservationParagraph(copy.joonggonara, MIN_COPY_LENGTH.joonggonara, observation),
+        bungae: appendImageObservationParagraph(copy.bungae, MIN_COPY_LENGTH.bungae, observation),
         seo_tags: copy.seo_tags,
     };
 }
 
-function isLowQualityCopy(copy: GeneratedCopy, imageAttached = false): boolean {
-    const blockCount = (text: string) =>
-        text
-            .split(/\n{2,}/)
-            .map((part) => part.trim())
-            .filter(Boolean).length;
-
-    const lacksImageBlocks =
-        imageAttached &&
-        (!hasImageObservationBlock(copy.danggeun) ||
-            !hasImageObservationBlock(copy.joonggonara) ||
-            !hasImageObservationBlock(copy.bungae));
+function isLowQualityCopy(copy: GeneratedCopy): boolean {
+    const blockCount = (text: string) => getContentBlocks(text).length;
+    const hasTemplatedSections =
+        containsTemplatedCopy(copy.danggeun) ||
+        containsTemplatedCopy(copy.joonggonara) ||
+        containsTemplatedCopy(copy.bungae);
 
     return (
         copy.danggeun.length < MIN_COPY_LENGTH.danggeun ||
@@ -205,16 +240,22 @@ function isLowQualityCopy(copy: GeneratedCopy, imageAttached = false): boolean {
         blockCount(copy.joonggonara) < MIN_CONTENT_BLOCKS ||
         blockCount(copy.bungae) < MIN_CONTENT_BLOCKS ||
         copy.seo_tags.length < 5 ||
-        lacksImageBlocks
+        hasTemplatedSections
     );
 }
 
 function enforceMinLength(text: string, minLength: number): string {
-    const filler = "\n\n[추가 안내]\n입력해주신 정보만 기준으로 상세히 정리했으며, 확인되지 않은 내용은 임의로 넣지 않았습니다.\n\n[문의 안내]\n거래 방식이나 확인하고 싶은 점은 메시지로 편하게 문의해 주세요.";
     let next = text.trim();
+    const fillerParagraphs = [
+        "중고 거래 특성상 확인하고 싶은 포인트가 다를 수 있어 궁금한 부분은 메시지로 편하게 남겨 주세요.",
+        "보이는 상태와 적어둔 내용을 참고해 보시면 판단하시기 좋고, 필요한 내용은 확인 가능한 범위에서 답변드리겠습니다.",
+        "실제로 보고 궁금해질 만한 부분은 미리 물어보셔도 괜찮고, 과장 없이 전달된 내용 중심으로만 정리했습니다.",
+    ];
+    let fillerIndex = 0;
 
     while (next.length < minLength) {
-        next += filler;
+        next += `\n\n${fillerParagraphs[fillerIndex % fillerParagraphs.length]}`;
+        fillerIndex += 1;
     }
 
     return next;
@@ -255,49 +296,33 @@ function buildFactSafeFallbackCopy(params: {
 }): GeneratedCopy {
     const item = params.itemName.trim();
     const details = params.itemDetails.trim();
-    const imageObservation = params.imageAttached
-        ? [
-            IMAGE_OBSERVATION_BLOCK,
-            normalizeImageObservationText(
-                params.imageObservation ??
-                "첨부된 사진을 기준으로 외관 상태와 구성품 포함 여부를 실제 이미지에서 확인해 주세요.\n사진에서 명확히 보이지 않는 정보는 임의로 추가하지 않았습니다."
-            ),
-        ].join("\n")
-        : "";
+    const imageParagraph = params.imageAttached ? buildImageObservationParagraph(params.imageObservation ?? "") : "";
 
     const danggeunBase = [
         `${item} 판매합니다.`,
         ``,
-        `${details}`,
-        ...(imageObservation ? ["", imageObservation] : []),
+        `${details} 찾으시는 분이 상태를 바로 파악하실 수 있도록 전달해주신 내용 중심으로 자연스럽게 풀어 적었습니다.`,
+        ...(imageParagraph ? ["", `${imageParagraph} 사진에서 바로 확인되는 부분만 본문에 녹였습니다.`] : []),
         ``,
-        `제품 특징과 거래 조건은 입력해주신 문장을 기반으로 정리했습니다. 읽기 편하도록 핵심 내용을 나눠서 안내드립니다.`,
-        ``,
-        `입력해주신 내용을 기준으로 핵심 정보를 읽기 쉽게 정리했습니다. 과장 없이 실제 입력 정보 중심으로 안내드리며, 구매 시기/보증/환불 같은 확인되지 않은 내용은 임의로 추가하지 않았습니다. 관심 있으시면 편하게 문의 주세요.`,
+        `과하게 포장하지 않고 실제로 전달된 내용 위주로 적어두었으니, 관심 있으시면 궁금한 부분 편하게 메시지 주세요.`,
     ].join("\n");
 
     const joonggonaraBase = [
-        `[상품명] ${item}`,
+        `${item} 판매합니다.`,
         ``,
-        `[입력된 특징] ${details}`,
-        ...(imageObservation ? ["", imageObservation] : []),
+        `${details} 제품을 비교해서 보시는 분들이 헷갈리지 않도록 현재 확인되는 정보 위주로 조금 더 자세히 적었습니다.`,
+        ...(imageParagraph ? ["", `${imageParagraph} 보이지 않는 부분은 임의로 덧붙이지 않았습니다.`] : []),
         ``,
-        `[거래 안내] 입력해주신 내용 기준으로 거래 가능합니다.`,
-        ``,
-        `[추가 안내] 본 문구는 제공된 정보만 바탕으로 작성되었으며, 확인되지 않은 세부 정보(보증/환불/구매시기 등)는 포함하지 않았습니다.`,
-        ``,
-        `문의 주시면 입력된 정보 범위에서 상세히 안내드리겠습니다.`,
+        `중고 거래에서 중요하게 보시는 포인트가 다를 수 있는 만큼, 필요하신 부분은 문의 주시면 확인 가능한 범위에서 자세히 답변드리겠습니다.`,
     ].join("\n");
 
     const bungaeBase = [
         `${item} 판매합니다.`,
         ``,
-        `${details}`,
-        ...(imageObservation ? ["", imageObservation] : []),
+        `${details} 핵심만 짧게 보기보다 실제 상태가 잘 전달되도록 필요한 내용은 빠지지 않게 정리했습니다.`,
+        ...(imageParagraph ? ["", `${imageParagraph}`] : []),
         ``,
-        `핵심만 빠르게 확인하실 수 있도록 정리했습니다. 제공된 정보 범위를 넘는 내용은 넣지 않았고, 확인되지 않은 조건은 별도로 안내드리지 않습니다.`,
-        ``,
-        `관심 있으시면 메시지 주세요.`,
+        `관심 있으시면 메시지 주세요. 거래 전에 확인하고 싶은 부분은 편하게 물어보시면 답변드리겠습니다.`,
     ].join("\n");
 
     return {
@@ -461,6 +486,7 @@ Return ONLY a JSON object with keys:
 "danggeun", "joonggonara", "bungae", "seo_tags".
 
 Write in natural Korean. Tone must be warm, trustworthy, and detailed.
+Each listing should feel like a real seller wrote it and can paste it directly into the marketplace.
 All listing text fields must be written in Korean.
 
 Hard constraints:
@@ -475,6 +501,13 @@ Hard constraints:
 3) Keep important details from the user input. Do not over-compress.
 4) Do not use exaggerated hype language or spammy phrases.
 
+Writing rules:
+- Blend the user's original wording and facts into a cohesive listing.
+- Do not turn the result into a guide, notice, or explanation about how the text was written.
+- Never output bracketed headers or template labels such as [사진 관찰], [추가 안내], [문의 안내], [상품명], [거래 안내].
+- Never write meta phrases such as "입력해주신 내용을 기준으로 정리했습니다", "읽기 쉽게 정리했습니다", "안내드립니다".
+- Use normal paragraphs, not checklist-style labels.
+
 Length constraints (minimum):
 - danggeun: at least ${MIN_COPY_LENGTH.danggeun} Korean characters
 - joonggonara: at least ${MIN_COPY_LENGTH.joonggonara} Korean characters
@@ -485,9 +518,10 @@ Structure constraints:
 - Expand by adding at least 2 extra detail blocks compared to a short one-paragraph listing.
 - Recommended block order: 1) item summary 2) condition/detail explanation 3) transaction/contact guidance.
 ${imageUrl
-            ? `- Because an image is attached, each platform copy MUST include one dedicated block starting with "${IMAGE_OBSERVATION_BLOCK}" and describe only visible facts from the image (appearance, package condition, visible wear, visible components).
-- In the "${IMAGE_OBSERVATION_BLOCK}" block, include at least 2 concrete visual observations (for example: color/print/packaging state/visible text/visible scratches).`
-            : `- Because no image is attached, do not include "${IMAGE_OBSERVATION_BLOCK}" blocks.`}
+            ? `- An image is attached. Reflect only clearly visible facts from the image inside normal body paragraphs.
+- Mention at least 2 concrete visual facts when they are clearly visible.
+- If clear image-based details are not available, simply leave image-based wording out.`
+            : `- No image is attached. Do not mention photos or image analysis.`}
 
 Platform style:
 - danggeun: friendly local-trade vibe, clear condition description, easy-to-read structure.
@@ -568,7 +602,7 @@ For "seo_tags":
 
         let finalCopy = normalized;
 
-        if (isLowQualityCopy(finalCopy, Boolean(imageUrl))) {
+        if (isLowQualityCopy(finalCopy)) {
             const expanded = await expandCopyToMeetQuality({
                 draft: finalCopy,
                 ageGroup,
@@ -584,16 +618,18 @@ For "seo_tags":
         }
 
         let imageObservation: string | undefined;
-        if (imageUrl && !hasImageObservationBlocks(finalCopy)) {
+        if (imageUrl && !hasVisualCuesInAllCopies(finalCopy)) {
             imageObservation = await describeImageObservation({
                 imageUrl,
                 itemName,
                 itemDetails,
             });
-            finalCopy = injectImageObservationBlocks(finalCopy, imageObservation);
+            if (imageObservation) {
+                finalCopy = injectImageObservationParagraphs(finalCopy, imageObservation);
+            }
         }
 
-        if (isLowQualityCopy(finalCopy, Boolean(imageUrl))) {
+        if (isLowQualityCopy(finalCopy)) {
             finalCopy = buildFactSafeFallbackCopy({
                 itemName,
                 itemDetails,
@@ -616,14 +652,15 @@ async function describeImageObservation(params: {
     itemDetails: string;
 }): Promise<string> {
     if (!OPENAI_API_KEY) {
-        return "첨부된 사진에서 확인되는 외관 상태와 보이는 구성품 범위만 안내드립니다.";
+        return "";
     }
 
     const prompt = `
-You analyze one marketplace image and write only visible facts in Korean.
+You analyze one marketplace image and write only clearly visible facts in Korean.
 Do not invent hidden details.
-Return plain Korean text in 2~4 short lines.
-Include at least 2 concrete visual observations (for example: color, print text, package condition, visible wear).
+Return 1 or 2 natural Korean sentences that can be inserted directly into a seller listing.
+Include at least 2 concrete visual observations when they are clearly visible.
+If there are not at least 2 clear visible facts, return an empty string.
 
 Item name: ${params.itemName}
 Item details from seller: ${params.itemDetails}
@@ -652,19 +689,15 @@ Item details from seller: ${params.itemDetails}
             }),
         });
 
-        if (!response.ok) {
-            return "첨부된 사진에서 확인되는 외관 상태와 보이는 구성품 범위만 안내드립니다.";
-        }
+        if (!response.ok) return "";
 
         const data = await response.json();
         const text = extractTextFromModelContent(data?.choices?.[0]?.message?.content);
-        if (!text) {
-            return "첨부된 사진에서 확인되는 외관 상태와 보이는 구성품 범위만 안내드립니다.";
-        }
+        if (!text) return "";
 
         return normalizeImageObservationText(text);
     } catch {
-        return "첨부된 사진에서 확인되는 외관 상태와 보이는 구성품 범위만 안내드립니다.";
+        return "";
     }
 }
 
@@ -690,10 +723,13 @@ Quality constraints:
 - bungae length >= ${MIN_COPY_LENGTH.bungae}
 - each copy must include at least ${MIN_CONTENT_BLOCKS} content blocks separated by blank lines
 - seo_tags count: 5 to 8
+- write cohesive seller-facing paragraphs, not guide text or notices
+- do not use bracketed labels such as [사진 관찰], [추가 안내], [문의 안내], [상품명], [거래 안내]
+- do not use meta phrases about how the text was organized or based on the input
 ${params.imageAttached
-            ? `- each copy must include one block that starts with "${IMAGE_OBSERVATION_BLOCK}" and only describes visible facts from the image
-- that block must include at least 2 concrete visual observations`
-            : `- do not add "${IMAGE_OBSERVATION_BLOCK}" when no image is attached`}
+            ? `- when clearly visible facts from the image are available, weave them naturally into normal body paragraphs
+- if clear image-based details are not available, simply leave them out`
+            : `- do not mention photos or image analysis when no image is attached`}
 
 Fact safety:
 - Do not invent warranty/refund/receipt/certification/purchase date/shipping/reason-for-sale details.
@@ -742,7 +778,7 @@ ${JSON.stringify(params.draft)}
         const normalized = normalizeGeneratedCopy(parsed);
         if (!normalized) return null;
 
-        if (isLowQualityCopy(normalized, params.imageAttached)) return null;
+        if (isLowQualityCopy(normalized)) return null;
 
         return normalized;
     } catch {

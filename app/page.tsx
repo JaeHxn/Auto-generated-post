@@ -2,6 +2,7 @@
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
+import Image from "next/image";
 import { useState, useRef } from "react";
 import { Copy, Sparkles, CreditCard, Star, Share2, LogIn, LogOut, Zap, Camera, Instagram, X } from "lucide-react";
 import { generateSellerCopy, analyzeAndSavePersona } from "./actions";
@@ -451,7 +452,16 @@ export default function Home() {
           <div className="absolute right-0 top-0">
             {isLoading ? <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" /> : isLoggedIn ? (
               <div className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 border border-white/20">
-                {session?.user?.image && <img src={session.user.image} alt="profile" className="w-7 h-7 rounded-full border border-white/30" />}
+                {session?.user?.image && (
+                  <Image
+                    src={session.user.image}
+                    alt="profile"
+                    width={28}
+                    height={28}
+                    unoptimized
+                    className="w-7 h-7 rounded-full border border-white/30"
+                  />
+                )}
                 <span className="text-white/80 text-xs font-semibold hidden sm:block">{session?.user?.name?.split(" ")[0]}</span>
                 <button type="button" onClick={() => setShowPayment(true)} className="text-[#ffde00] font-bold text-xs ml-2 hover:underline bg-transparent border-0 p-0">💳 충전</button>
                 <button onClick={() => setShowHistory(true)} className="text-white/70 hover:text-[#ffde00] transition-colors ml-2 mr-1" title="보관함">📦 보관함</button>
@@ -523,7 +533,13 @@ export default function Home() {
               </p>
               {imagePreview && (
                 <div className="w-16 h-16 rounded-xl border border-white/20 overflow-hidden relative shadow-[0_0_15px_rgba(0,201,255,0.2)]">
-                  <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
+                  <Image
+                    src={imagePreview}
+                    alt="preview"
+                    fill
+                    unoptimized
+                    className="object-cover"
+                  />
                   <button onClick={() => { setImageFile(null); setImagePreview(null); setIsPreparingImage(false); }} className="absolute top-1 right-1 bg-black/70 rounded-full p-0.5 text-white">
                     <X size={12} />
                   </button>
