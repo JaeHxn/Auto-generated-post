@@ -19,6 +19,9 @@ const GUEST_DAILY_LIMIT = 1;
 const USER_DAILY_LIMIT = 2;
 const GUEST_COUNT_KEY = "magic_seller_guest_count";
 const GUEST_DATE_KEY = "magic_seller_guest_date";
+const AI_IMAGE_SIZE = 1400;
+const AI_IMAGE_TYPE = "image/jpeg";
+const AI_IMAGE_QUALITY = 0.9;
 
 function getGuestCount(): number {
   if (typeof window === "undefined") return 0;
@@ -36,6 +39,53 @@ function incrementGuestCount(): number {
   const next = getGuestCount() + 1;
   localStorage.setItem(GUEST_COUNT_KEY, String(next));
   return next;
+}
+
+function loadImageFromFile(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("image_decode_failed"));
+    };
+    image.src = objectUrl;
+  });
+}
+
+async function normalizeImageForAI(file: File): Promise<string> {
+  if (typeof window === "undefined") {
+    throw new Error("image_resize_unavailable");
+  }
+
+  const image = await loadImageFromFile(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = AI_IMAGE_SIZE;
+  canvas.height = AI_IMAGE_SIZE;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("image_context_unavailable");
+  }
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, AI_IMAGE_SIZE, AI_IMAGE_SIZE);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+
+  const scale = Math.min(AI_IMAGE_SIZE / image.width, AI_IMAGE_SIZE / image.height);
+  const drawWidth = Math.round(image.width * scale);
+  const drawHeight = Math.round(image.height * scale);
+  const offsetX = Math.round((AI_IMAGE_SIZE - drawWidth) / 2);
+  const offsetY = Math.round((AI_IMAGE_SIZE - drawHeight) / 2);
+
+  context.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+
+  return canvas.toDataURL(AI_IMAGE_TYPE, AI_IMAGE_QUALITY);
 }
 
 function RouletteModal({ isLoggedIn, onClose, onLogin }: { isLoggedIn: boolean; onClose: () => void; onLogin: () => void; }) {
@@ -137,6 +187,7 @@ export default function Home() {
   // 새롭게 추가되는 상태들 (이미지, 인스타 말투 학습, 멀티플랫폼 결과)
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isPreparingImage, setIsPreparingImage] = useState(false);
 
   const [instagramTexts, setInstagramTexts] = useState("");
   const [isAnalyzingPersona, setIsAnalyzingPersona] = useState(false);
@@ -171,12 +222,30 @@ export default function Home() {
   // 이미지 첨부 핸들러
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setImagePreview(reader.result as string);
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    const fileType = file.type.toLowerCase();
+    if (fileType.includes("heic") || fileType.includes("heif")) {
+      alert("HEIC/HEIF 사진은 바로 분석하지 못합니다. JPG, PNG, WEBP 형식으로 변환 후 업로드해 주세요.");
+      e.target.value = "";
+      return;
     }
+
+    setImageFile(file);
+    setIsPreparingImage(true);
+
+    void normalizeImageForAI(file)
+      .then((normalizedDataUrl) => {
+        setImagePreview(normalizedDataUrl);
+      })
+      .catch(() => {
+        alert("사진 처리 중 오류가 발생했습니다. 다른 사진으로 다시 시도해 주세요.");
+        setImageFile(null);
+        setImagePreview(null);
+      })
+      .finally(() => {
+        setIsPreparingImage(false);
+      });
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -209,7 +278,12 @@ export default function Home() {
 
   const handleGenerateClick = async () => {
     if (!formData.birthYear || !formData.gender || !formData.itemName || !formData.itemDetails) {
-      alert("물품의 핵심 내용과 판매자 프로필을 모두 입력해주세요! 😎");
+      alert("Please fill in all seller and item fields.");
+      return;
+    }
+
+    if (isPreparingImage) {
+      alert("Image is still being resized for AI analysis. Please try again in a moment.");
       return;
     }
 
@@ -220,6 +294,7 @@ export default function Home() {
     }
 
     apiResultRef.current = null;
+    setErrorText("");
     setIsGenerating(true);
     setGachaState("card_ready");
 
@@ -228,20 +303,20 @@ export default function Home() {
       setGuestCount(newCount);
     }
 
-    // DB(Storage) 업로드 과정을 거치지 않고, Base64 형식의 imagePreview를 바로 활용
     const base64Image = imagePreview || undefined;
 
-    generateSellerCopy(
-      {
-        birthYear: Number(formData.birthYear),
-        gender: formData.gender,
-        itemName: formData.itemName,
-        itemDetails: formData.itemDetails,
-        imageUrl: base64Image
-      },
-      currentGuestCount
-    ).then((res) => {
-      setIsGenerating(false);
+    try {
+      const res = await generateSellerCopy(
+        {
+          birthYear: Number(formData.birthYear),
+          gender: formData.gender,
+          itemName: formData.itemName,
+          itemDetails: formData.itemDetails,
+          imageUrl: base64Image,
+        },
+        currentGuestCount,
+      );
+
       if (res.remainingCount !== undefined) setRemainingCount(res.remainingCount);
       if (res.currentCredits !== undefined) setCreditsCount(res.currentCredits);
 
@@ -255,16 +330,20 @@ export default function Home() {
         apiResultRef.current = res.data;
       } else {
         apiResultRef.current = null;
-        setErrorText(res.text || "에러 발생");
+        setErrorText(res.text || "AI writing failed.");
       }
-
+    } catch {
+      apiResultRef.current = null;
+      setErrorText("AI request failed. Please re-upload the image and try again.");
+    } finally {
+      setIsGenerating(false);
       setGachaState((prev) => {
         if (prev === "card_flipped") {
           setTimeout(() => showResult(apiResultRef.current), 0);
         }
         return prev;
       });
-    });
+    }
   };
 
   const showResult = (data: SellerCopyData | null) => {
@@ -429,13 +508,22 @@ export default function Home() {
               </label>
               <label className="cursor-pointer bg-black/25 hover:bg-black/40 border-[1.5px] border-white/10 border-dashed text-white/70 p-4 rounded-2xl flex items-center justify-center gap-2 flex-1 transition-all">
                 <Camera size={20} />
-                <span className="cursor-pointer text-sm font-semibold">{imageFile ? imageFile.name : "사진을 업로드하면 AI가 상태를 파악해요"}</span>
-                <input type="file" accept="image/*" className="hidden cursor-pointer" onChange={handleImageChange} />
+                <span className="cursor-pointer text-sm font-semibold">
+                  {isPreparingImage
+                    ? `사진을 ${AI_IMAGE_SIZE}x${AI_IMAGE_SIZE} 분석용 크기로 맞추는 중...`
+                    : imageFile
+                      ? `${imageFile.name} (${AI_IMAGE_SIZE}x${AI_IMAGE_SIZE} 분석용으로 자동 조정)`
+                      : "사진을 업로드하면 AI가 상태를 파악해요"}
+                </span>
+                <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden cursor-pointer" onChange={handleImageChange} />
               </label>
+              <p className="mt-2 text-xs text-white/45">
+                업로드한 사진은 작은 경우 키우고 큰 경우 줄여서 {AI_IMAGE_SIZE}x{AI_IMAGE_SIZE} 분석용 크기로 자동 변환됩니다.
+              </p>
               {imagePreview && (
                 <div className="w-16 h-16 rounded-xl border border-white/20 overflow-hidden relative shadow-[0_0_15px_rgba(0,201,255,0.2)]">
                   <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
-                  <button onClick={() => { setImageFile(null); setImagePreview(null); }} className="absolute top-1 right-1 bg-black/70 rounded-full p-0.5 text-white">
+                  <button onClick={() => { setImageFile(null); setImagePreview(null); setIsPreparingImage(false); }} className="absolute top-1 right-1 bg-black/70 rounded-full p-0.5 text-white">
                     <X size={12} />
                   </button>
                 </div>
@@ -464,7 +552,7 @@ export default function Home() {
               <textarea name="itemDetails" value={formData.itemDetails} onChange={handleInputChange} className="w-full h-[100px] resize-none bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans leading-relaxed" placeholder="예: 3년 썼는데 케이스 씌워 써서 상태 좋습니다. 모서리 흠집 하나 있음." />
             </div>
 
-            <button type="button" onClick={handleGenerateClick} className="mt-2 relative overflow-hidden bg-gradient-to-br from-[#ff416c] to-[#ff6f0f] text-white p-5 rounded-2xl text-[1.15rem] font-extrabold cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_15px_35px_rgba(255,111,15,0.6)] shadow-[0_8px_25px_rgba(255,111,15,0.4)]">
+            <button type="button" disabled={isPreparingImage} onClick={handleGenerateClick} className="mt-2 relative overflow-hidden bg-gradient-to-br from-[#ff416c] to-[#ff6f0f] text-white p-5 rounded-2xl text-[1.15rem] font-extrabold cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_15px_35px_rgba(255,111,15,0.6)] shadow-[0_8px_25px_rgba(255,111,15,0.4)] disabled:opacity-60 disabled:cursor-wait disabled:hover:scale-100">
               <span className="relative z-10 flex items-center justify-center gap-2">마법처럼 판매글 생성하기 <Sparkles size={20} /></span>
               <div className="absolute top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-20deg] animate-[shine_3s_infinite]" />
             </button>
