@@ -13,6 +13,8 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import HistoryModal from "./HistoryModal";
 import HomeEditorialSections from "./components/HomeEditorialSections";
 import PaymentModal from "./components/PaymentModal";
+import { trackEvent } from "@/lib/analytics";
+
 type GachaState = "hidden" | "card_ready" | "card_flipped" | "result";
 type Platform = "danggeun" | "joonggonara" | "bungae";
 type SellerCopyData = NonNullable<GenerateResult["data"]>;
@@ -108,6 +110,7 @@ function RouletteModal({ isLoggedIn, onClose, onLogin }: { isLoggedIn: boolean; 
     setTimeout(() => {
       setSpinning(false);
       setRevealed(true);
+      trackEvent("roulette_spin", { prize: prizes[winSlice] });
       confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 } });
     }, 3200);
   };
@@ -212,6 +215,15 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
 
+  const [loadingStep, setLoadingStep] = useState(0);
+  const loadingSteps = [
+    "사진 데이터를 분석하는 중...",
+    "판매자의 말투 페르소나를 파악 중...",
+    "당근, 중고나라용 최적화 문구 구성 중...",
+    "마지막으로 완벽한 태그를 뽑는 중..."
+  ];
+
+
   const [remainingCount, setRemainingCount] = useState<number | null>(null);
   const [creditsCount, setCreditsCount] = useState<number | null>(null);
   const [guestCount, setGuestCount] = useState(() => getGuestCount());
@@ -299,6 +311,8 @@ export default function Home() {
     setErrorText("");
     setIsGenerating(true);
     setGachaState("card_ready");
+    setLoadingStep(0);
+    trackEvent("generate_click", { itemName: formData.itemName });
 
     if (!isLoggedIn) {
       const newCount = incrementGuestCount();
@@ -347,6 +361,15 @@ export default function Home() {
       });
     }
   };
+
+  // 단계별 메시지를 위한 타이머 (isGenerating 동안)
+  useEffect(() => {
+    if (!isGenerating) return;
+    const interval = setInterval(() => {
+      setLoadingStep((prev) => (prev + 1) % loadingSteps.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [isGenerating, loadingSteps.length]);
 
   const showResult = (data: SellerCopyData | null) => {
     if (!data) {
@@ -409,6 +432,7 @@ export default function Home() {
     const textToCopy = getCurrentResultText();
     const doCopy = () => {
       setIsCopied(true);
+      trackEvent("copy_click", { platform: activeTab });
       confetti({ particleCount: 150, spread: 70, origin: { y: 0.8 }, colors: ["#ff6f0f", "#ffde00", "#ffffff"] });
       setTimeout(() => setIsCopied(false), 3000);
     };
@@ -438,6 +462,7 @@ export default function Home() {
     if (navigator.share) {
       try {
         await navigator.share({ title: "Magic Seller AI 프리미엄 판매글", text: textToShare });
+        trackEvent("share_click", { platform: activeTab });
         confetti({ particleCount: 100, spread: 100, origin: { y: 0.5 }, colors: ["#8c52ff", "#00c9ff", "#ffffff"] });
       } catch { }
     } else {
@@ -463,7 +488,7 @@ export default function Home() {
                   />
                 )}
                 <span className="text-white/80 text-xs font-semibold hidden sm:block">{session?.user?.name?.split(" ")[0]}</span>
-                <button type="button" onClick={() => setShowPayment(true)} className="text-[#ffde00] font-bold text-xs ml-2 hover:underline bg-transparent border-0 p-0">💳 충전</button>
+                <button type="button" onClick={() => { setShowPayment(true); trackEvent("payment_modal_open"); }} className="text-[#ffde00] font-bold text-xs ml-2 hover:underline bg-transparent border-0 p-0">💳 충전</button>
                 <button onClick={() => setShowHistory(true)} className="text-white/70 hover:text-[#ffde00] transition-colors ml-2 mr-1" title="보관함">📦 보관함</button>
                 <button onClick={() => signOut()} className="text-white/40 hover:text-white transition-colors ml-1" title="로그아웃"><LogOut size={14} /></button>
               </div>
@@ -603,8 +628,9 @@ export default function Home() {
                 <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180 rounded-[24px] border-[3px] border-[#ffde00] bg-gradient-to-br from-[#ffe066] via-[#ffde00] to-[#e6b800] flex flex-col items-center justify-center">
                   <div className="flex gap-1 text-[#d48900] mb-5"><Star fill="currentColor" size={20} /><Star fill="currentColor" size={28} className="animate-pulse" /><Star fill="currentColor" size={20} /></div>
                   <div className="w-14 h-14 rounded-full border-[5px] border-[#b38e00]/30 border-t-[#5c4a00] animate-spin mb-3" />
-                  <p className="text-[#5c4a00] font-black text-lg">AI 글쓰기 중...</p>
+                  <p className="text-[#5c4a00] font-black text-lg">{loadingSteps[loadingStep]}</p>
                 </div>
+
               </div>
             </div>
           </div>
@@ -675,7 +701,7 @@ export default function Home() {
         {showRoulette && <RouletteModal isLoggedIn={isLoggedIn} onClose={() => setShowRoulette(false)} onLogin={() => { setShowRoulette(false); signIn("google"); }} />}
       </AnimatePresence>
       <AnimatePresence>{showHistory && <HistoryModal onClose={() => setShowHistory(false)} />}</AnimatePresence>
-      <AnimatePresence>{showPayment && <PaymentModal onClose={() => setShowPayment(false)} />}</AnimatePresence>
+      <AnimatePresence>{showPayment && <PaymentModal onClose={() => { setShowPayment(false); }} />}</AnimatePresence>
     </>
   );
 }

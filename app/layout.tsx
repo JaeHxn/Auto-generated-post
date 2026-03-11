@@ -8,11 +8,12 @@ const siteUrl = "https://daangn-auto-post.pages.dev";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Magic Seller | 중고 판매글 AI 자동 작성",
+    default: "Magic Seller | 10초 만에 끝내는 중고 판매글 AI 자동 작성",
     template: "%s | Magic Seller",
   },
   description:
-    "Magic Seller는 당근마켓, 중고나라, 번개장터용 판매글을 AI로 정리해 주는 웹 서비스입니다. 서비스 소개, 가이드, 개인정보 처리방침, 이용약관, 문의 페이지를 함께 제공합니다.",
+    "당근마켓, 중고나라, 번개장터 판매글 쓰기 힘드셨죠? Magic Seller AI가 사진 한 장으로 명품 같은 판매글을 10초 만에 써드립니다. 말투 학습부터 다중 플랫폼 대응까지!",
+  keywords: ["당근마켓", "중고나라", "번개장터", "중고거래", "AI 글쓰기", "매직셀러", "중고판매팁"],
   applicationName: "Magic Seller",
   alternates: {
     canonical: "/",
@@ -21,16 +22,25 @@ export const metadata: Metadata = {
     type: "website",
     url: siteUrl,
     siteName: "Magic Seller",
-    title: "Magic Seller | 중고 판매글 AI 자동 작성",
+    title: "Magic Seller | 사진 한 장으로 완성하는 중고 판매글 AI",
     description:
-      "중고 판매글 자동 작성 도구와 서비스 안내, 가이드, 정책 페이지를 함께 제공하는 Magic Seller 공식 사이트입니다.",
+      "글쓰기 귀찮을 땐? 매직셀러! AI가 내 말투로 당근, 중고나라, 번개장터 판매글을 한 번에 작성해 드립니다. 지금 무료로 체험해 보세요.",
     locale: "ko_KR",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Magic Seller - AI Second-hand Listing Generator",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Magic Seller | 중고 판매글 AI 자동 작성",
+    title: "Magic Seller | 중고거래 필수 AI 도구",
     description:
-      "당근마켓, 중고나라, 번개장터용 판매글을 AI로 정리하고 서비스 정책과 운영 정보를 함께 제공하는 공식 사이트입니다.",
+      "귀찮은 중고 판매글, 사진만 찍으세요. AI가 완벽하게 대신 써줍니다.",
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,

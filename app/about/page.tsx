@@ -10,46 +10,75 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <InfoPageShell
-      eyebrow="About"
-      title="Magic Seller 서비스 소개"
-      description="Magic Seller는 중고 판매글 작성 시간을 줄이고, 플랫폼에 맞는 구조로 판매글을 정리해 주는 AI 도구입니다."
+      eyebrow="Mission & Vision"
+      title="Magic Seller: 중고 거래의 가치를 재정의하다"
+      description="우리는 누구나 쉽고 정직하게 자신의 물건을 판매할 수 있는 세상을 꿈꿉니다. 최고의 AI 기술로 중고 거래의 첫 단추인 '판매글 작성'을 마법처럼 바꿔드립니다."
     >
-      <InfoSection title="무엇을 하는 서비스인가요?">
+      <InfoSection title="1. 프로젝트의 시작: 왜 Magic Seller인가요?">
         <p>
-          Magic Seller는 사용자가 입력한 상품명, 상태 설명, 판매 조건, 사진을 바탕으로 중고 판매글 초안을 작성합니다.
-          당근마켓, 중고나라, 번개장터처럼 서로 다른 분위기의 플랫폼에 맞춰 글 구조를 나눠 보여 주는 것이 핵심입니다.
+          중고 거래 시장은 매년 폭발적으로 성장하고 있지만, 개인이 물건을 등록하는 과정은 여전히 10년 전과 다름없습니다.
+          제품 사진을 찍고, 사양을 검색하고, 어색하지 않은 말투를 고민하며 키보드를 두드리는 일은 누구에게나 번거로운 작업입니다.
+          이러한 불편함 때문에 많은 좋은 물건들이 집 안 구석에 방치되곤 합니다.
         </p>
         <p>
-          단순히 문장을 화려하게 바꾸는 것이 아니라, 구매자가 확인하고 싶어 하는 정보가 빠지지 않도록 정리하는 방향으로 설계했습니다.
+          Magic Seller는 이 '등록의 허들'을 AI 기술로 낮추기 위해 시작되었습니다.
+          단순한 자동 완성을 넘어, 판매자가 진심으로 자신의 물건을 소개하고 구매자가 필요한 정보를 한눈에 파악할 수 있는
+          가장 효율적인 인터페이스를 연구합니다.
         </p>
       </InfoSection>
 
-      <InfoSection title="어떤 원칙으로 결과를 만드나요?">
-        <p>서비스는 다음 원칙을 우선합니다.</p>
-        <ul className="space-y-2 pl-5">
-          <li>허위 스펙, 미확인 구성품, 과장 표현을 임의로 추가하지 않습니다.</li>
-          <li>사진이 있으면 이미지에서 실제로 확인되는 정보만 설명하도록 유도합니다.</li>
-          <li>플랫폼마다 어울리는 길이와 말투를 반영하되, 핵심 거래 정보는 유지합니다.</li>
-          <li>최종 게시 전에 사용자가 반드시 검토할 수 있도록 초안 중심으로 제공합니다.</li>
-        </ul>
-      </InfoSection>
-
-      <InfoSection title="이 서비스가 특히 도움이 되는 경우">
-        <ul className="space-y-2 pl-5">
-          <li>상품은 괜찮은데 글을 짧고 밋밋하게 쓰는 경우</li>
-          <li>중고나라처럼 상세 설명을 길게 쓰고 싶은데 구조가 잘 안 잡히는 경우</li>
-          <li>사진은 올렸지만 어떤 포인트를 본문에 넣어야 할지 모르겠는 경우</li>
-          <li>여러 플랫폼에 맞춰 제목과 본문을 각각 다르게 정리하고 싶은 경우</li>
-        </ul>
-      </InfoSection>
-
-      <InfoSection title="운영 및 문의">
+      <InfoSection title="2. 기술적 정수: Vision AI와 LLM의 결합">
         <p>
-          운영 문의, 결제 문의, 환불 문의는 <a href="mailto:luvsoul@kakao.com" className="text-[#ffde00] hover:underline">luvsoul@kakao.com</a> 으로 받고 있습니다.
+          매직셀러의 핵심 기술은 OpenAI의 최신 모델인 GPT-4o Vision을 기반으로 합니다.
+          단순히 이미지가 '무엇인지' 파악하는 단계를 넘어, 이미지 속 제품의 상태, 흠집의 유무, 브랜드 로고의 위치, 구성품의 개수까지 정밀하게 스캔합니다.
         </p>
         <p>
-          상세한 운영 정책은 <Link href="/terms" className="text-[#ffde00] hover:underline">이용약관</Link>과 <Link href="/privacy" className="text-[#ffde00] hover:underline">개인정보 처리방침</Link>에서 확인할 수 있습니다.
+          이렇게 추출된 시각 데이터는 사용자가 입력한 텍스트 데이터와 결합되어 거대 언어 모델(LLM)에 의해 정제됩니다.
+          이 과정에서 '당근마켓의 친근함', '중고나라의 상세함', '번개장터의 트렌디함'이라는 세 가지 페르소나를 각각 적용하여,
+          하나의 데이터로 세 개의 플랫폼에 최적화된 결과물을 동시에 뽑아내는 멀티-에이전트 시스템을 구축했습니다.
         </p>
+      </InfoSection>
+
+      <InfoSection title="3. 우리가 지키는 3가지 철학">
+        <div className="mt-4 space-y-6">
+          <div className="bg-white/5 border border-white/10 p-5 rounded-2xl">
+            <h4 className="text-[#ffde00] font-bold mb-2">사실 기반의 정직함 (Data-Driven Honesty)</h4>
+            <p className="text-sm leading-relaxed">
+              AI가 존재하지 않는 정보를 꾸며내는 '환각(Hallucination)' 현상을 억제하기 위해,
+              보이는 사실과 입력된 사실만을 기반으로 글을 작성하도록 엄격한 프롬프트 엔지니어링을 적용하고 있습니다.
+            </p>
+          </div>
+          <div className="bg-white/5 border border-white/10 p-5 rounded-2xl">
+            <h4 className="text-[#ffde00] font-bold mb-2">사용자 중심의 편의성 (User-Centric Simplicity)</h4>
+            <p className="text-sm leading-relaxed">
+              복잡한 설정 없이 사진 한 장과 몇 단어만으로도 전문가 수준의 판매글을 얻을 수 있도록
+              UX 시나리오를 설계했습니다. 기술은 복잡해도 사용법은 마법처럼 단순해야 합니다.
+            </p>
+          </div>
+          <div className="bg-white/5 border border-white/10 p-5 rounded-2xl">
+            <h4 className="text-[#ffde00] font-bold mb-2">지속 가능한 운영 (Sustainable Growth)</h4>
+            <p className="text-sm leading-relaxed">
+              수익 모델(AdSense 및 유료 충전)을 투명하게 운영하여 안정적인 서버 인프라를 유지하고,
+              창출된 수익은 다시 AI 모델의 고도화와 무료 사용 혜택 확대에 사용됩니다.
+            </p>
+          </div>
+        </div>
+      </InfoSection>
+
+      <InfoSection title="4. 향후 로드맵: Magic Seller의 내일">
+        <p>
+          현재의 판매글 생성을 넘어, 향후에는 각 플랫폼의 '실시간 시세 데이터'를 연동하여 적정 판매 가격을 제안하고,
+          구매자와의 채팅 단계에서 사용할 수 있는 '매너 답변 가이드 AI'까지 확장할 계획입니다.
+          Magic Seller는 당신의 중고 거래가 즐겁고 가치 있는 경험이 될 때까지 멈추지 않을 것입니다.
+        </p>
+      </InfoSection>
+
+      <InfoSection title="운영 및 연락처">
+        <p>
+          서비스 운영자에게 전하고 싶은 의견이나 비즈니스 제안은 아래 메일로 보내주세요.
+          보내주시는 모든 응원과 비판은 사이트 발전의 밑거름이 됩니다.
+        </p>
+        <p className="mt-4 font-bold text-lg text-[#ffde00]">Email: <a href="mailto:luvsoul@kakao.com" className="hover:underline">luvsoul@kakao.com</a></p>
       </InfoSection>
     </InfoPageShell>
   );
