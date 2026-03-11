@@ -2,8 +2,8 @@
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-import Image from "next/image";
-import { useState, useRef } from "react";
+import NextImage from "next/image";
+import { useState, useRef, useEffect } from "react";
 import { Copy, Sparkles, CreditCard, Star, Share2, LogIn, LogOut, Zap, Camera, Instagram, X } from "lucide-react";
 import { generateSellerCopy, analyzeAndSavePersona } from "./actions";
 import type { GenerateResult } from "./actions";
@@ -478,7 +478,7 @@ export default function Home() {
             {isLoading ? <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" /> : isLoggedIn ? (
               <div className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 border border-white/20">
                 {session?.user?.image && (
-                  <Image
+                  <NextImage
                     src={session.user.image}
                     alt="profile"
                     width={28}
@@ -558,7 +558,7 @@ export default function Home() {
               </p>
               {imagePreview && (
                 <div className="w-16 h-16 rounded-xl border border-white/20 overflow-hidden relative shadow-[0_0_15px_rgba(0,201,255,0.2)]">
-                  <Image
+                  <NextImage
                     src={imagePreview}
                     alt="preview"
                     fill
