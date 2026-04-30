@@ -30,9 +30,10 @@ type GeneratedResultData =
   | { mode: "seller"; data: SellerCopyData }
   | { mode: SocialPlatform; data: SocialPostData };
 
-const GUEST_DAILY_LIMIT = 1;
+const GUEST_DAILY_LIMIT = 2;
 const GUEST_COUNT_KEY = "magic_seller_guest_count";
 const GUEST_DATE_KEY = "magic_seller_guest_date";
+const ROULETTE_SPIN_KEY = "magic_seller_roulette_date";
 const AI_IMAGE_SIZE = 1400;
 const AI_IMAGE_TYPE = "image/jpeg";
 const AI_IMAGE_QUALITY = 0.9;
@@ -53,6 +54,18 @@ function incrementGuestCount(): number {
   const next = getGuestCount() + 1;
   localStorage.setItem(GUEST_COUNT_KEY, String(next));
   return next;
+}
+
+function hasSpunRouletteToday(): boolean {
+  if (typeof window === "undefined") return false;
+  const today = new Date().toISOString().split("T")[0];
+  return localStorage.getItem(ROULETTE_SPIN_KEY) === today;
+}
+
+function markRouletteSpun(): void {
+  if (typeof window === "undefined") return;
+  const today = new Date().toISOString().split("T")[0];
+  localStorage.setItem(ROULETTE_SPIN_KEY, today);
 }
 
 function loadImageFromFile(file: File): Promise<HTMLImageElement> {
@@ -102,7 +115,7 @@ async function normalizeImageForAI(file: File): Promise<string> {
   return canvas.toDataURL(AI_IMAGE_TYPE, AI_IMAGE_QUALITY);
 }
 
-function RouletteModal({ isLoggedIn, onClose, onLogin, locale }: { isLoggedIn: boolean; onClose: () => void; onLogin: () => void; locale: Locale }) {
+function RouletteModal({ isLoggedIn, onClose, onLogin, onBonusGranted, locale }: { isLoggedIn: boolean; onClose: () => void; onLogin: () => void; onBonusGranted?: () => void; locale: Locale }) {
   const t = useDict(locale);
   const prizes = [t.rouletteLoginBonus, t.rouletteLoginBonus, t.rouletteLoginBonus, t.rouletteLoginBonus, t.rouletteLoginBonus, t.rouletteLoginBonus];
   const [spinning, setSpinning] = useState(false);
@@ -121,6 +134,7 @@ function RouletteModal({ isLoggedIn, onClose, onLogin, locale }: { isLoggedIn: b
     setTimeout(() => {
       setSpinning(false);
       setRevealed(true);
+      onBonusGranted?.();
       trackEvent("roulette_spin", { prize: prizes[winSlice] });
       confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 } });
     }, 3200);
@@ -343,8 +357,13 @@ export default function Home() {
       return;
     }
 
-    if (!isLoggedIn && currentGuestCount >= GUEST_DAILY_LIMIT) {
-      setShowRoulette(true);
+    const effectiveLimit = GUEST_DAILY_LIMIT + (hasSpunRouletteToday() ? 1 : 0);
+    if (!isLoggedIn && currentGuestCount >= effectiveLimit) {
+      if (!hasSpunRouletteToday()) {
+        setShowRoulette(true);
+      } else {
+        setShowPayment(true);
+      }
       return;
     }
 
@@ -960,7 +979,7 @@ export default function Home() {
       </div>
 
       <AnimatePresence>
-        {showRoulette && <RouletteModal locale={locale} isLoggedIn={isLoggedIn} onClose={() => setShowRoulette(false)} onLogin={() => { setShowRoulette(false); signIn("google"); }} />}
+        {showRoulette && <RouletteModal locale={locale} isLoggedIn={isLoggedIn} onClose={() => setShowRoulette(false)} onLogin={() => { setShowRoulette(false); signIn("google"); }} onBonusGranted={() => { markRouletteSpun(); }} />}
       </AnimatePresence>
       <AnimatePresence>{showHistory && <HistoryModal onClose={() => setShowHistory(false)} />}</AnimatePresence>
       <AnimatePresence>{showPayment && <PaymentModal onClose={() => { setShowPayment(false); }} />}</AnimatePresence>

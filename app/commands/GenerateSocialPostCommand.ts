@@ -8,7 +8,7 @@ import {
 import { SocialPostAgent } from "../agents/SocialPostAgent";
 import { YouTubeTranscriptSkill, YouTubeVideoContext } from "../skills/YouTubeTranscriptSkill";
 
-const GUEST_DAILY_LIMIT = 1;
+const GUEST_DAILY_LIMIT = 2;
 const USER_DAILY_LIMIT = 2;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "luvsoul@kakao.com";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;

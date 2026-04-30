@@ -6,13 +6,20 @@ CREATE TABLE IF NOT EXISTS inquiries (
   user_name TEXT,
   subject TEXT NOT NULL,
   message TEXT NOT NULL,
-  status TEXT DEFAULT 'pending',
+  status TEXT DEFAULT 'pending',  -- pending | replied
+  admin_reply TEXT,               -- 관리자 답변 내용
+  replied_at TIMESTAMPTZ,         -- 답변 시각
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 서비스 롤만 읽기/쓰기 가능 (RLS)
 ALTER TABLE inquiries ENABLE ROW LEVEL SECURITY;
 
--- 인덱스 (이메일, 생성일 검색용)
+-- 기존 테이블에 컬럼 추가 (이미 테이블 있을 경우)
+ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS admin_reply TEXT;
+ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ;
+
+-- 인덱스 (이메일, 생성일, 상태 검색용)
 CREATE INDEX IF NOT EXISTS inquiries_user_email_idx ON inquiries(user_email);
 CREATE INDEX IF NOT EXISTS inquiries_created_at_idx ON inquiries(created_at DESC);
+CREATE INDEX IF NOT EXISTS inquiries_status_idx ON inquiries(status);

@@ -4,7 +4,7 @@ import { GenerateResult, GeneratorParams, AgentContext } from "../types/harness"
 import { ListingAgent } from "../agents/ListingAgent";
 import { TextProcessingSkill } from "../skills/TextProcessingSkill";
 
-const GUEST_DAILY_LIMIT = 1;
+const GUEST_DAILY_LIMIT = 2;
 const USER_DAILY_LIMIT = 2;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "luvsoul@kakao.com";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;

@@ -8,7 +8,7 @@ import { Locale, useDict } from "../i18n";
 import LanguageSwitcher from "./LanguageSwitcher";
 
 const USER_DAILY_LIMIT = 2;
-const GUEST_DAILY_LIMIT = 1;
+const GUEST_DAILY_LIMIT = 2;
 
 interface Props {
   locale: Locale;
@@ -46,9 +46,16 @@ export default function SiteHeader({
       ? USER_DAILY_LIMIT
       : Math.max(0, GUEST_DAILY_LIMIT - guestCount);
 
+  // 9999 = 어드민 무제한 마커 → "∞"로 표시
+  const UNLIMITED_MARKER = 9999;
+  const displayRemaining = currentRemaining >= UNLIMITED_MARKER ? "∞" : String(currentRemaining);
+  const displayLimit = currentRemaining >= UNLIMITED_MARKER ? "∞" : String(currentLimit);
+  const displayCredits =
+    creditsCount !== null && creditsCount >= UNLIMITED_MARKER ? "∞" : creditsCount !== null ? String(creditsCount) : null;
+
   const freeCountText = t.freeCount
-    .replace("{remaining}", String(currentRemaining))
-    .replace("{limit}", String(currentLimit));
+    .replace("{remaining}", displayRemaining)
+    .replace("{limit}", displayLimit);
 
   return (
     <header className="text-center mb-10 relative min-h-[236px]">
@@ -155,7 +162,7 @@ export default function SiteHeader({
       <div className="mt-4 flex min-h-8 items-center justify-center gap-2">
         <div
           className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold border ${
-            currentRemaining === 0 && (creditsCount || 0) === 0
+            currentRemaining === 0 && (creditsCount || 0) === 0 && currentRemaining < UNLIMITED_MARKER
               ? "bg-red-500/20 border-red-500/50 text-red-400"
               : isLoggedIn
               ? "bg-[#00c9ff]/10 border-[#00c9ff]/30 text-[#00c9ff]"
@@ -164,7 +171,7 @@ export default function SiteHeader({
         >
           <Zap size={14} />
           {isLoggedIn
-            ? `${freeCountText}${creditsCount !== null ? ` + 💎${creditsCount}` : ""}`
+            ? `${freeCountText}${displayCredits !== null ? ` + 💎${displayCredits}` : ""}`
             : freeCountText}
         </div>
         {!isLoggedIn && (
