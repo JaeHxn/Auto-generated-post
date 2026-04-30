@@ -4,10 +4,16 @@
 // 역할: 하네스(createHarness)에 100% 위임 — 비즈니스 로직 절대 없음
 
 import { createHarness } from "./harness";
-import { GeneratorParams } from "./types/harness";
+import type { GeneratorParams, SocialPostInput } from "./types/harness";
 
 // 재사용을 위해 타입 다시 export (기존 컴포넌트들 호환성 유지)
-export type { GenerateResult } from "./types/harness";
+export type {
+  GenerateResult,
+  GeneratedSocialPost,
+  SocialPostInput,
+  SocialPlatform,
+  SocialPostResult,
+} from "./types/harness";
 
 /**
  * 1. AI 판매글 생성 (Harness → GeneratePostCommand → ListingAgent)
@@ -17,6 +23,13 @@ export async function generateSellerCopy(
   guestCount?: number
 ) {
   return createHarness().generate(formData, guestCount);
+}
+
+export async function generateSocialPost(
+  input: SocialPostInput,
+  guestCount?: number
+) {
+  return createHarness().generateSocialPost(input, guestCount);
 }
 
 /**

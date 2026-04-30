@@ -79,7 +79,7 @@ const ko: Dict = {
   charge: "💳 충전",
   storage: "📦 보관함",
   freeCount: "무료 {remaining}/{limit}회",
-  loginBonus: "로그인하면 5회 ▶",
+  loginBonus: "로그인하면 2회 ▶",
   photoLabel: "📸 제품 사진",
   photoOptional: "옵션",
   photoUploadHint: "사진을 업로드하면 AI가 상태를 파악해요",

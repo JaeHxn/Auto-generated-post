@@ -78,6 +78,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return true;
         },
         async session({ session }) {
+            if (session.user?.email) {
+                (session.user as unknown as Record<string, unknown>).isAdmin =
+                    session.user.email === (process.env.ADMIN_EMAIL ?? "luvsoul@kakao.com");
+            }
             return session;
         },
     },

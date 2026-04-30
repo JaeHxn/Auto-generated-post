@@ -1,37 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import Script from "next/script";
+import { useEffect, useState } from "react";
+import { CheckoutEventNames, type Paddle } from "@paddle/paddle-js";
 import { X, CreditCard, Sparkles } from "lucide-react";
 import { useSession } from "next-auth/react";
-
-type PaddleCheckoutEvent = {
-    name?: string;
-    data?: unknown;
-};
-
-type PaddleInstance = {
-    Environment: {
-        set: (environment: "sandbox" | "production") => void;
-    };
-    Initialize: (options: {
-        token: string;
-        eventCallback?: (event: PaddleCheckoutEvent) => void;
-    }) => void;
-    Checkout: {
-        open: (options: {
-            items: Array<{ priceId: string; quantity: number }>;
-            customer: { email: string };
-            customData: { userEmail: string; creditsToAdd: number };
-        }) => void;
-    };
-};
-
-declare global {
-    interface Window {
-        Paddle?: PaddleInstance;
-    }
-}
+import {
+    initializePaddleClient,
+    isPaddleConfigured,
+    openPaddleCreditCheckout,
+} from "@/lib/paddleClient";
 
 type CreditOption = {
     id: string;
@@ -40,9 +17,6 @@ type CreditOption = {
     credits: number;
     currency: "USD";
 };
-
-const clientToken = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN?.trim() ?? "";
-const environment = process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT === "sandbox" ? "sandbox" : "production";
 
 const CREDIT_OPTIONS: CreditOption[] = [
     {
@@ -71,33 +45,47 @@ const CREDIT_OPTIONS: CreditOption[] = [
 export default function PaymentModal({ onClose }: { onClose: () => void }) {
     const { data: session } = useSession();
     const [selectedOption, setSelectedOption] = useState<CreditOption | null>(CREDIT_OPTIONS[0] ?? null);
-    const [paddle, setPaddle] = useState<PaddleInstance | null>(null);
+    const [paddle, setPaddle] = useState<Paddle | null>(null);
 
-    const isPaymentConfigured = clientToken.length > 0 && CREDIT_OPTIONS.length > 0;
+    const isPaymentConfigured = isPaddleConfigured() && CREDIT_OPTIONS.length > 0;
     const [isInitializing, setIsInitializing] = useState(isPaymentConfigured);
+    const [initError, setInitError] = useState("");
 
-    const handlePaddleLoad = () => {
+    useEffect(() => {
+        let cancelled = false;
+
         if (!isPaymentConfigured) {
-            setIsInitializing(false);
             return;
         }
 
-        if (window.Paddle) {
-            window.Paddle.Environment.set(environment);
-            window.Paddle.Initialize({
-                token: clientToken,
-                eventCallback(data: PaddleCheckoutEvent) {
-                    if (data.name === "checkout.completed") {
-                        console.log("Paddle Checkout Completed!", data.data);
-                        onClose();
-                    }
-                },
+        void initializePaddleClient((event) => {
+            if (event.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
+                console.log("Paddle Checkout Completed!", event.data);
+                onClose();
+            }
+        })
+            .then((paddleInstance) => {
+                if (cancelled) return;
+                setPaddle(paddleInstance);
+                if (!paddleInstance) {
+                    setInitError("결제 모듈 초기화에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setInitError("결제 모듈 초기화에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setIsInitializing(false);
+                }
             });
 
-            setPaddle(window.Paddle);
-            setIsInitializing(false);
-        }
-    };
+        return () => {
+            cancelled = true;
+        };
+    }, [isPaymentConfigured, onClose]);
 
     const handlePayment = () => {
         if (!session?.user?.email) {
@@ -115,20 +103,10 @@ export default function PaymentModal({ onClose }: { onClose: () => void }) {
             return;
         }
 
-        paddle.Checkout.open({
-            items: [
-                {
-                    priceId: selectedOption.id,
-                    quantity: 1,
-                },
-            ],
-            customer: {
-                email: session.user.email,
-            },
-            customData: {
-                userEmail: session.user.email,
-                creditsToAdd: selectedOption.credits,
-            },
+        openPaddleCreditCheckout(paddle, {
+            priceId: selectedOption.id,
+            email: session.user.email,
+            creditsToAdd: selectedOption.credits,
         });
     };
 
@@ -144,13 +122,6 @@ export default function PaymentModal({ onClose }: { onClose: () => void }) {
 
     return (
         <>
-            {isPaymentConfigured && (
-                <Script
-                    src="https://cdn.paddle.com/paddle/v2/paddle.js"
-                    strategy="lazyOnload"
-                    onLoad={handlePaddleLoad}
-                />
-            )}
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/80 backdrop-blur-xl clickable" onClick={onClose} />
                 <div className="relative z-10 bg-gradient-to-br from-[#1a1030] to-[#0d0720] border border-[#ff416c]/30 rounded-[32px] p-8 max-w-sm w-full shadow-[0_0_80px_rgba(255,65,108,0.4)] flex flex-col items-center gap-5">
@@ -173,6 +144,12 @@ export default function PaymentModal({ onClose }: { onClose: () => void }) {
                             결제 설정이 누락되어 충전을 시작할 수 없습니다.
                             <br />
                             <code>NEXT_PUBLIC_PADDLE_CLIENT_TOKEN</code>, <code>NEXT_PUBLIC_PADDLE_PRICE_ID_*</code> 값을 확인해 주세요.
+                        </div>
+                    )}
+
+                    {initError && (
+                        <div className="w-full p-4 rounded-2xl border border-red-400/30 bg-red-400/10 text-red-200 text-sm">
+                            {initError}
                         </div>
                     )}
 

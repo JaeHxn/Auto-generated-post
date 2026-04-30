@@ -198,7 +198,7 @@ For "seo_tags":
     const context: AgentContext = { apiKey: OPENAI_API_KEY, userEmail };
     const agent = new ListingAgent(context);
 
-    let result = await agent.generateDraft(prompt, formData.imageUrl, formData.itemName, formData.itemDetails);
+    const result = await agent.generateDraft(prompt, formData.imageUrl, formData.itemName, formData.itemDetails);
     if (!result.success || !result.data) {
       return { ...result, remainingCount: remaining, limit, isLimitReached: false, isCreditUsed, currentCredits };
     }

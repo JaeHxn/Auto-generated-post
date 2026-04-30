@@ -1,7 +1,8 @@
 "use client";
 
 import NextImage from "next/image";
-import { Zap, LogIn, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { MessageCircleQuestion, ShieldCheck, Zap, LogIn, LogOut } from "lucide-react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { Locale, useDict } from "../i18n";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -17,6 +18,7 @@ interface Props {
   guestCount: number;
   onOpenPayment: () => void;
   onOpenHistory: () => void;
+  onOpenInquiry: () => void;
 }
 
 export default function SiteHeader({
@@ -27,8 +29,11 @@ export default function SiteHeader({
   guestCount,
   onOpenPayment,
   onOpenHistory,
+  onOpenInquiry,
 }: Props) {
+  const router = useRouter();
   const { data: session, status } = useSession();
+  const isAdmin = (session?.user as Record<string, unknown> | undefined)?.isAdmin === true;
   const isLoggedIn = status === "authenticated";
   const isLoading = status === "loading";
   const t = useDict(locale);
@@ -46,16 +51,16 @@ export default function SiteHeader({
     .replace("{limit}", String(currentLimit));
 
   return (
-    <header className="text-center mb-10 relative">
+    <header className="text-center mb-10 relative min-h-[236px]">
       {/* Top bar: language + auth */}
-      <div className="flex items-center justify-between mb-6 gap-2 flex-wrap">
+      <div className="flex min-h-10 items-center justify-between mb-6 gap-2 flex-wrap">
         <LanguageSwitcher locale={locale} onChange={onLocaleChange} />
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex min-h-9 flex-1 items-center justify-end gap-2 flex-wrap">
           {isLoading ? (
             <div className="w-24 h-8 rounded-full bg-white/10 animate-pulse" />
           ) : isLoggedIn ? (
-            <div className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 border border-white/20">
+            <div className="flex items-center justify-end gap-2 bg-white/10 rounded-2xl sm:rounded-full px-2.5 py-1.5 border border-white/20 flex-wrap">
               {session?.user?.image && (
                 <NextImage
                   src={session.user.image}
@@ -72,33 +77,62 @@ export default function SiteHeader({
               <button
                 type="button"
                 onClick={onOpenPayment}
-                className="text-[#ffde00] font-bold text-xs ml-1 hover:underline bg-transparent border-0 p-0"
+                className="rounded-full px-2 py-1 text-[#ffde00] font-bold text-xs hover:bg-white/10 transition-colors"
               >
                 {t.charge}
               </button>
               <button
                 onClick={onOpenHistory}
-                className="text-white/70 hover:text-[#ffde00] transition-colors ml-1 text-xs"
+                className="rounded-full px-2 py-1 text-white/75 hover:text-[#ffde00] hover:bg-white/10 transition-colors text-xs font-semibold"
                 title={t.storage}
               >
                 {t.storage}
               </button>
               <button
+                onClick={onOpenInquiry}
+                className="flex items-center gap-1 rounded-full px-2 py-1 text-white/75 hover:text-[#ffde00] hover:bg-white/10 transition-colors text-xs font-semibold"
+                title="관리자에게 문의"
+              >
+                <MessageCircleQuestion size={13} />
+                문의
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => router.push("/admin/dashboard")}
+                  className="flex items-center gap-1 rounded-full px-2 py-1 text-orange-400 hover:text-orange-300 hover:bg-white/10 transition-colors text-xs font-semibold"
+                  title="관리자 페이지"
+                >
+                  <ShieldCheck size={13} />
+                  관리자
+                </button>
+              )}
+              <button
                 onClick={() => signOut()}
-                className="text-white/40 hover:text-white transition-colors ml-1"
+                className="flex items-center gap-1 rounded-full px-2 py-1 text-white/60 hover:text-white hover:bg-white/10 transition-colors text-xs font-semibold"
                 title={t.logout}
               >
                 <LogOut size={13} />
+                {t.logout}
               </button>
             </div>
           ) : (
-            <button
-              onClick={() => signIn("google")}
-              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-bold px-4 py-2 rounded-full transition-all hover:scale-105 shadow-[0_4px_15px_rgba(0,0,0,0.3)]"
-            >
-              <LogIn size={13} />
-              {t.loginGoogle}
-            </button>
+            <>
+              <button
+                onClick={onOpenInquiry}
+                className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white/85 text-xs sm:text-sm font-bold px-3 py-2 rounded-full transition-all shadow-[0_4px_15px_rgba(0,0,0,0.25)]"
+                title="관리자에게 문의"
+              >
+                <MessageCircleQuestion size={14} />
+                문의
+              </button>
+              <button
+                onClick={() => signIn("google")}
+                className="flex items-center gap-1.5 bg-[#ff6f0f] hover:bg-[#ff812c] border border-[#ffb88c]/40 text-white text-xs sm:text-sm font-bold px-3 sm:px-4 py-2 rounded-full transition-all hover:scale-105 shadow-[0_4px_15px_rgba(255,111,15,0.3)]"
+              >
+                <LogIn size={14} />
+                {t.loginGoogle}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -115,10 +149,10 @@ export default function SiteHeader({
           Seller
         </span>
       </h1>
-      <p className="text-[#b3b3b3] text-lg mt-3">{t.tagline}</p>
+      <p className="text-[#b3b3b3] text-lg mt-3 min-h-[28px]">{t.tagline}</p>
 
       {/* Usage badge */}
-      <div className="mt-4 flex items-center justify-center gap-2">
+      <div className="mt-4 flex min-h-8 items-center justify-center gap-2">
         <div
           className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold border ${
             currentRemaining === 0 && (creditsCount || 0) === 0

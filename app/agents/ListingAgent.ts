@@ -1,9 +1,13 @@
 // ListingAgent.ts: AI 판매글 생성 에이전트
 // 역할: OpenAI API 직접 호출 담당. VisionSkill로 이미지 선분석 후 프롬프트에 주입.
 
-import { GeneratedCopy, GeneratorParams, AgentContext } from "../types/harness";
+import { GeneratedCopy, AgentContext } from "../types/harness";
 import { VisionSkill } from "../skills/VisionSkill";
 import { TextProcessingSkill } from "../skills/TextProcessingSkill";
+
+type MessageContent =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
 
 export class ListingAgent {
   private context: AgentContext;
@@ -24,8 +28,8 @@ export class ListingAgent {
     imageUrl: string | undefined,
     itemName: string,
     itemDetails: string
-  ): Promise<{ enrichedPrompt: string; messagesContent: any[] }> {
-    const messagesContent: any[] = [{ type: "text", text: prompt }];
+  ): Promise<{ enrichedPrompt: string; messagesContent: MessageContent[] }> {
+    const messagesContent: MessageContent[] = [{ type: "text", text: prompt }];
 
     if (!imageUrl) {
       return { enrichedPrompt: prompt, messagesContent };
@@ -67,7 +71,7 @@ export class ListingAgent {
     imageUrl?: string,
     itemName?: string,
     itemDetails?: string
-  ): Promise<{ success: boolean; data?: GeneratedCopy; text?: string; jsonContent?: any }> {
+  ): Promise<{ success: boolean; data?: GeneratedCopy; text?: string; jsonContent?: Record<string, unknown> }> {
     try {
       const { messagesContent } = await this.enrichPromptWithVision(
         prompt,
@@ -108,7 +112,7 @@ export class ListingAgent {
       if (!normalized) return { success: false, text: "[DEBUG] AI JSON schema mismatch" };
 
       return { success: true, data: normalized, jsonContent };
-    } catch (e) {
+    } catch {
       return { success: false, text: "[DEBUG] 예외 오류 발생" };
     }
   }

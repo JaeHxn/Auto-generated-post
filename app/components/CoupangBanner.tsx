@@ -3,50 +3,36 @@
 import { useEffect, useRef } from "react";
 
 export default function CoupangBanner() {
-  // 쿠팡 자체 오류로 광고 생성이 안되어 임시로 숨김 처리 (주석 처리 역할)
-  return null;
-
-  const adRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
-    // Only run on client side and if the ad container exists
-    if (typeof window !== "undefined" && adRef.current && !adRef.current.hasChildNodes()) {
-      // 1. Load the Coupang partners script
-      const script = document.createElement("script");
-      script.src = "https://ads-partners.coupang.com/g.js";
-      script.async = true;
-      document.head.appendChild(script);
-
-      script.onload = () => {
-        // 2. Initialize the ad inside the ref container
-        if ((window as any).PartnersCoupang) {
-          try {
-            new (window as any).PartnersCoupang.G({
-              "id": 985086,
-              "template": "carousel",
-              "trackingCode": "AF5449962",
-              "width": "680",
-              "height": "140",
-              "tsource": "",
-              "container": adRef.current
-            });
-          } catch (e) {
-            console.error("Coupang Ad init error:", e);
-          }
-        }
-      };
+    // browsingtopics는 Privacy Sandbox 실험용 비표준 속성 — ref로 직접 주입
+    if (iframeRef.current) {
+      iframeRef.current.setAttribute("browsingtopics", "");
     }
   }, []);
 
   return (
-    <div className="rounded-[20px] border border-white/10 bg-white/5 backdrop-blur-[20px] p-5 sm:p-6 w-full max-w-[680px] mx-auto overflow-hidden">
-      <div className="w-full flex justify-center min-h-[140px]" ref={adRef}>
-        {/* 쿠팡 광고가 이 안에 렌더링됩니다 */}
+    <aside
+      aria-label="쿠팡 추천 상품"
+      className="mx-auto my-4 w-full max-w-[680px] overflow-hidden rounded-md border border-white/10 bg-white/[0.03]"
+    >
+      <div className="mx-auto overflow-hidden">
+        <iframe
+          ref={iframeRef}
+          src="https://ads-partners.coupang.com/widgets.html?id=985313&template=carousel&trackingCode=AF5449962&subId=&width=680&height=140&tsource="
+          width="680"
+          height="140"
+          frameBorder={0}
+          scrolling="no"
+          referrerPolicy="unsafe-url"
+          title="쿠팡 추천 상품"
+          className="block w-full"
+        />
       </div>
-
-      <p className="mt-4 text-[11px] text-white/30 leading-relaxed border-t border-white/8 pt-3 text-center">
+      <p className="px-3 pb-2 text-center text-[11px] leading-tight text-white/35">
         이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.
       </p>
-    </div>
+    </aside>
   );
 }

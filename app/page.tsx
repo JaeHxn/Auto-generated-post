@@ -4,15 +4,16 @@ export const dynamic = "force-dynamic";
 
 import NextImage from "next/image";
 import { useState, useRef, useEffect } from "react";
-import { Copy, Sparkles, CreditCard, Star, Share2, LogIn, LogOut, Zap, Camera, Instagram, X } from "lucide-react";
-import { generateSellerCopy, analyzeAndSavePersona } from "./actions";
-import type { GenerateResult } from "./actions";
+import { Copy, Sparkles, CreditCard, Star, Share2, Camera, Instagram, Youtube, X } from "lucide-react";
+import { generateSellerCopy, generateSocialPost, analyzeAndSavePersona } from "./actions";
+import type { GenerateResult, SocialPlatform, SocialPostInput, SocialPostResult } from "./actions";
 import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import HistoryModal from "./HistoryModal";
 import HomeEditorialSections from "./components/HomeEditorialSections";
 import PaymentModal from "./components/PaymentModal";
+import InquiryModal from "./components/InquiryModal";
 import CoupangBanner from "./components/CoupangBanner";
 import SiteHeader from "./components/SiteHeader";
 import { Locale, useDict, getStoredLocale } from "./i18n";
@@ -21,11 +22,15 @@ import { logAccess } from "@/lib/accessLog";
 import ShareBar from "./components/ShareBar";
 
 type GachaState = "hidden" | "card_ready" | "card_flipped" | "result";
-type Platform = "danggeun" | "joonggonara" | "bungae";
+type ContentMode = "seller" | "instagram" | "youtube";
+type MarketplacePlatform = "danggeun" | "joonggonara" | "bungae";
 type SellerCopyData = NonNullable<GenerateResult["data"]>;
+type SocialPostData = NonNullable<SocialPostResult["data"]>;
+type GeneratedResultData =
+  | { mode: "seller"; data: SellerCopyData }
+  | { mode: SocialPlatform; data: SocialPostData };
 
 const GUEST_DAILY_LIMIT = 1;
-const USER_DAILY_LIMIT = 2;
 const GUEST_COUNT_KEY = "magic_seller_guest_count";
 const GUEST_DATE_KEY = "magic_seller_guest_date";
 const AI_IMAGE_SIZE = 1400;
@@ -186,7 +191,6 @@ function RouletteModal({ isLoggedIn, onClose, onLogin, locale }: { isLoggedIn: b
 export default function Home() {
   const { data: session, status } = useSession();
   const isLoggedIn = status === "authenticated";
-  const isLoading = status === "loading";
 
   const [locale, setLocale] = useState<Locale>("ko");
   useEffect(() => { setLocale(getStoredLocale()); }, []);
@@ -201,6 +205,11 @@ export default function Home() {
     itemName: "",
     itemDetails: "",
   });
+  const [socialFormData, setSocialFormData] = useState({
+    instagramBrief: "",
+    youtubeVideoUrl: "",
+    youtubeDetails: "",
+  });
 
   // 새롭게 추가되는 상태들 (이미지, 인스타 말투 학습, 멀티플랫폼 결과)
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -212,21 +221,18 @@ export default function Home() {
   const [personaSaved, setPersonaSaved] = useState(false);
 
   const [gachaState, setGachaState] = useState<GachaState>("hidden");
-  // 단일 텍스트에서 플랫폼/태그 데이터 객체로 변경
-  const [resultData, setResultData] = useState<{
-    danggeun: string;
-    joonggonara: string;
-    bungae: string;
-    seo_tags: string[];
-  } | null>(null);
-  const [activeTab, setActiveTab] = useState<Platform>("danggeun");
+  const [contentMode, setContentMode] = useState<ContentMode>("seller");
+  const [resultData, setResultData] = useState<GeneratedResultData | null>(null);
+  const [activeTab, setActiveTab] = useState<MarketplacePlatform>("danggeun");
   const [errorText, setErrorText] = useState("");
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [isHashtagCopied, setIsHashtagCopied] = useState(false);
   const [showRoulette, setShowRoulette] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [showInquiry, setShowInquiry] = useState(false);
 
   const [loadingStep, setLoadingStep] = useState(0);
   const loadingSteps = [
@@ -241,10 +247,16 @@ export default function Home() {
   const [creditsCount, setCreditsCount] = useState<number | null>(null);
   const [guestCount, setGuestCount] = useState(() => getGuestCount());
 
-  const apiResultRef = useRef<SellerCopyData | null>(null); // 이제 JSON 결과 객체를 담음
+  const apiResultRef = useRef<GeneratedResultData | null>(null);
 
-  const currentLimit = isLoggedIn ? USER_DAILY_LIMIT : GUEST_DAILY_LIMIT;
-  const currentRemaining = remainingCount !== null ? remainingCount : isLoggedIn ? USER_DAILY_LIMIT : Math.max(0, GUEST_DAILY_LIMIT - guestCount);
+  const activeModeLabel =
+    contentMode === "seller" ? "당근용" : contentMode === "instagram" ? "인스타용" : "유튜브용";
+  const generateButtonLabel =
+    contentMode === "seller"
+      ? "당근용 판매글 생성하기"
+      : contentMode === "instagram"
+        ? "인스타 게시물 생성하기"
+        : "유튜브 게시물 생성하기";
 
   // 이미지 첨부 핸들러
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -279,6 +291,10 @@ export default function Home() {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handleSocialInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setSocialFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
   // 인스타 말투 학습 핸들러
   const handleAnalyzePersona = async () => {
     if (!isLoggedIn) {
@@ -304,28 +320,49 @@ export default function Home() {
   };
 
   const handleGenerateClick = async () => {
-    if (!formData.birthYear || !formData.gender || !formData.itemName || !formData.itemDetails) {
+    const currentGuestCount = getGuestCount();
+    const selectedMode = contentMode;
+
+    if (selectedMode === "seller" && (!formData.birthYear || !formData.gender || !formData.itemName || !formData.itemDetails)) {
       alert(t.fillAllFields);
       return;
     }
 
-    if (isPreparingImage) {
+    if (selectedMode === "instagram" && !imagePreview && !socialFormData.instagramBrief.trim()) {
+      alert("인스타용은 사진이나 게시물 내용 요약을 입력해주세요.");
+      return;
+    }
+
+    if (selectedMode === "youtube" && !socialFormData.youtubeVideoUrl.trim() && !socialFormData.youtubeDetails.trim()) {
+      alert("유튜브용은 영상 URL이나 영상 내용 메모를 입력해주세요.");
+      return;
+    }
+
+    if (selectedMode !== "youtube" && isPreparingImage) {
       alert(t.imageStillResizing);
       return;
     }
 
-    const currentGuestCount = getGuestCount();
     if (!isLoggedIn && currentGuestCount >= GUEST_DAILY_LIMIT) {
       setShowRoulette(true);
       return;
     }
 
     apiResultRef.current = null;
+    setResultData(null);
     setErrorText("");
     setIsGenerating(true);
     setGachaState("card_ready");
     setLoadingStep(0);
-    trackEvent("generate_click", { itemName: formData.itemName });
+    trackEvent("generate_click", {
+      mode: selectedMode,
+      subject:
+        selectedMode === "seller"
+          ? formData.itemName
+          : selectedMode === "instagram"
+            ? socialFormData.instagramBrief.slice(0, 80)
+            : (socialFormData.youtubeVideoUrl || socialFormData.youtubeDetails).slice(0, 80),
+    });
 
     if (!isLoggedIn) {
       const newCount = incrementGuestCount();
@@ -335,35 +372,65 @@ export default function Home() {
     const base64Image = imagePreview || undefined;
 
     try {
-      const res = await generateSellerCopy(
-        {
+      if (selectedMode === "seller") {
+        const requestParams = {
           birthYear: Number(formData.birthYear),
           gender: formData.gender,
           itemName: formData.itemName,
           itemDetails: formData.itemDetails,
           imageUrl: base64Image,
-        },
-        currentGuestCount,
-      );
+        };
+        const res = await generateSellerCopy(requestParams, currentGuestCount);
 
-      if (res.remainingCount !== undefined) setRemainingCount(res.remainingCount);
-      if (res.currentCredits !== undefined) setCreditsCount(res.currentCredits);
+        if (res.remainingCount !== undefined) setRemainingCount(res.remainingCount);
+        if (res.currentCredits !== undefined) setCreditsCount(res.currentCredits);
 
-      if (res.isLimitReached) {
-        setGachaState("hidden");
-        setShowPayment(true);
-        return;
-      }
+        if (res.isLimitReached) {
+          setGachaState("hidden");
+          setShowPayment(true);
+          return;
+        }
 
-      if (res.success && res.data) {
-        apiResultRef.current = res.data;
+        if (res.success && res.data) {
+          apiResultRef.current = { mode: "seller", data: res.data };
+        } else {
+          apiResultRef.current = null;
+          setErrorText(res.text || "AI writing failed.");
+        }
       } else {
-        apiResultRef.current = null;
-        setErrorText(res.text || "AI writing failed.");
+        const socialInput: SocialPostInput =
+          selectedMode === "instagram"
+            ? {
+                platform: "instagram",
+                imageUrl: base64Image,
+                postBrief: socialFormData.instagramBrief.trim(),
+              }
+            : {
+                platform: "youtube",
+                videoUrl: socialFormData.youtubeVideoUrl.trim() || undefined,
+                videoDetails: socialFormData.youtubeDetails.trim() || undefined,
+              };
+        const res = await generateSocialPost(socialInput, currentGuestCount);
+
+        if (res.remainingCount !== undefined) setRemainingCount(res.remainingCount);
+        if (res.currentCredits !== undefined) setCreditsCount(res.currentCredits);
+
+        if (res.isLimitReached) {
+          setGachaState("hidden");
+          setShowPayment(true);
+          return;
+        }
+
+        if (res.success && res.data) {
+          apiResultRef.current = { mode: selectedMode, data: res.data };
+        } else {
+          apiResultRef.current = null;
+          setErrorText(res.text || "AI writing failed.");
+        }
       }
     } catch {
       apiResultRef.current = null;
-      setErrorText("AI request failed. Please re-upload the image and try again.");
+      setErrorText("AI request failed. Please check the input and try again.");
     } finally {
       setIsGenerating(false);
       setGachaState((prev) => {
@@ -384,7 +451,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [isGenerating, loadingSteps.length]);
 
-  const showResult = (data: SellerCopyData | null) => {
+  const showResult = (data: GeneratedResultData | null) => {
     if (!data) {
       // 에러 처리
       triggerAwesomeConfetti();
@@ -399,7 +466,7 @@ export default function Home() {
     setTimeout(() => {
       setGachaState("result");
       setResultData(data);
-      setActiveTab("danggeun"); // 기본 탭
+      if (data.mode === "seller") setActiveTab("danggeun");
       setTimeout(() => {
         document.getElementById("result-section")?.scrollIntoView({ behavior: "smooth" });
       }, 100);
@@ -435,19 +502,81 @@ export default function Home() {
     }
   };
 
+  const getDisplayResultText = () => {
+    if (!resultData) return errorText;
+    if (resultData.mode === "seller") {
+      return resultData.data[activeTab];
+    }
+
+    const { content, title, description } = resultData.data;
+    if (resultData.mode === "youtube") {
+      return [
+        title ? `제목: ${title}` : null,
+        description ? `설명:\n${description}` : null,
+        `본문:\n${content}`,
+      ].filter(Boolean).join("\n\n");
+    }
+
+    return content;
+  };
+
+  const getCurrentHashtags = () => {
+    if (!resultData) return [];
+    return resultData.mode === "seller" ? resultData.data.seo_tags : resultData.data.hashtags;
+  };
+
   const getCurrentResultText = () => {
     if (!resultData) return errorText;
-    const text = resultData[activeTab];
-    return `${text}\n\n---\n🪄 Magic Seller AI 자동 작성 (https://daangn-auto-post.pages.dev/)`;
+    const text = getDisplayResultText();
+    if (resultData.mode === "seller") {
+      return `${text}\n\n---\n🪄 Magic Seller AI 자동 작성 (https://daangn-auto-post.pages.dev/)`;
+    }
+    const hashtags = getCurrentHashtags()
+      .map((tag) => (tag.startsWith("#") ? tag : `#${tag}`))
+      .join(" ");
+    return `${text}${hashtags ? `\n\n${hashtags}` : ""}`;
   };
 
   const copyToClipboard = () => {
     const textToCopy = getCurrentResultText();
     const doCopy = () => {
       setIsCopied(true);
-      trackEvent("copy_click", { platform: activeTab });
+      trackEvent("copy_click", { platform: resultData?.mode === "seller" ? activeTab : resultData?.mode });
       confetti({ particleCount: 150, spread: 70, origin: { y: 0.8 }, colors: ["#ff6f0f", "#ffde00", "#ffffff"] });
       setTimeout(() => setIsCopied(false), 3000);
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(textToCopy).then(doCopy).catch(() => {
+        const el = document.createElement("textarea");
+        el.value = textToCopy;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+        doCopy();
+      });
+    } else {
+      const el = document.createElement("textarea");
+      el.value = textToCopy;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      doCopy();
+    }
+  };
+
+  const copyHashtagsToClipboard = () => {
+    const tags = getCurrentHashtags();
+    if (!tags.length) return;
+    // 유튜브: 쉼표+공백 구분, # 없음 / 그 외: #태그 스페이스 구분
+    const textToCopy = resultData?.mode === "youtube"
+      ? tags.map((t) => t.replace(/^#+/, "")).join(", ")
+      : tags.map((t) => (t.startsWith("#") ? t : `#${t}`)).join(" ");
+    const doCopy = () => {
+      setIsHashtagCopied(true);
+      trackEvent("hashtag_copy_click", { platform: resultData?.mode });
+      setTimeout(() => setIsHashtagCopied(false), 2500);
     };
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(textToCopy).then(doCopy).catch(() => {
@@ -474,8 +603,16 @@ export default function Home() {
     const textToShare = getCurrentResultText();
     if (navigator.share) {
       try {
-        await navigator.share({ title: "Magic Seller AI 프리미엄 판매글", text: textToShare });
-        trackEvent("share_click", { platform: activeTab });
+        const shareModeLabel =
+          resultData?.mode === "seller"
+            ? "당근용"
+            : resultData?.mode === "instagram"
+              ? "인스타용"
+              : resultData?.mode === "youtube"
+                ? "유튜브용"
+                : activeModeLabel;
+        await navigator.share({ title: `Magic Seller AI ${shareModeLabel}`, text: textToShare });
+        trackEvent("share_click", { platform: resultData?.mode === "seller" ? activeTab : resultData?.mode });
         confetti({ particleCount: 100, spread: 100, origin: { y: 0.5 }, colors: ["#8c52ff", "#00c9ff", "#ffffff"] });
       } catch { }
     } else {
@@ -485,7 +622,7 @@ export default function Home() {
 
   return (
     <>
-      <main className="container mx-auto max-w-[650px] px-5 py-12 relative">
+      <main className="container mx-auto max-w-[650px] px-5 py-12 relative min-h-[960px]">
         <SiteHeader
           locale={locale}
           onLocaleChange={setLocale}
@@ -494,6 +631,7 @@ export default function Home() {
           guestCount={guestCount}
           onOpenPayment={() => { setShowPayment(true); trackEvent("payment_modal_open"); }}
           onOpenHistory={() => setShowHistory(true)}
+          onOpenInquiry={() => setShowInquiry(true)}
         />
 
         {isLoggedIn && !personaSaved && (
@@ -518,68 +656,160 @@ export default function Home() {
           </div>
         )}
 
-        <section className="bg-white/5 backdrop-blur-[20px] border border-white/10 rounded-[28px] p-8 sm:p-10 shadow-[0_10px_40px_rgba(0,0,0,0.4)] relative">
+        <section className="bg-white/5 backdrop-blur-[20px] border border-white/10 rounded-[28px] p-8 sm:p-10 shadow-[0_10px_40px_rgba(0,0,0,0.4)] relative min-h-[710px] sm:min-h-[690px]">
           <div className="flex flex-col gap-6">
-
-            {/* Vision AI 파일 업로드 */}
-            <div className="flex flex-col">
-              <label className="flex items-center text-white font-semibold mb-2 text-base">
-                {t.photoLabel} <span className="bg-[#00c9ff]/20 text-[#00c9ff] border border-[#00c9ff]/30 text-xs px-2.5 py-1 rounded-full ml-3 font-bold">{t.photoOptional}</span>
-              </label>
-              <label className="cursor-pointer bg-black/25 hover:bg-black/40 border-[1.5px] border-white/10 border-dashed text-white/70 p-4 rounded-2xl flex items-center justify-center gap-2 flex-1 transition-all">
-                <Camera size={20} />
-                <span className="cursor-pointer text-sm font-semibold">
-                  {isPreparingImage
-                    ? t.photoResizing
-                    : imageFile
-                      ? `${imageFile.name} (${AI_IMAGE_SIZE}x${AI_IMAGE_SIZE} ${t.photoAutoAdjust})`
-                      : t.photoUploadHint}
-                </span>
-                <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden cursor-pointer" onChange={handleImageChange} />
-              </label>
-              <p className="mt-2 text-xs text-white/45">
-                업로드한 사진은 작은 경우 키우고 큰 경우 줄여서 {AI_IMAGE_SIZE}x{AI_IMAGE_SIZE} 분석용 크기로 자동 변환됩니다.
-              </p>
-              {imagePreview && (
-                <div className="w-16 h-16 rounded-xl border border-white/20 overflow-hidden relative shadow-[0_0_15px_rgba(0,201,255,0.2)]">
-                  <NextImage
-                    src={imagePreview}
-                    alt="preview"
-                    fill
-                    unoptimized
-                    className="object-cover"
-                  />
-                  <button onClick={() => { setImageFile(null); setImagePreview(null); setIsPreparingImage(false); }} className="absolute top-1 right-1 bg-black/70 rounded-full p-0.5 text-white">
-                    <X size={12} />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col">
-              <label className="flex items-center text-white font-semibold mb-2 text-base">{t.sellerInfo}</label>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input type="number" name="birthYear" value={formData.birthYear} onChange={handleInputChange} className="w-full bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans" placeholder={t.birthYearPlaceholder} min="1940" max="2015" />
-                <select name="gender" value={formData.gender} onChange={handleInputChange} className="cursor-pointer w-full bg-black/25 border-[1.5px] border-white/10 text-white/70 p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans appearance-none">
-                  <option value="" disabled>{t.genderSelect}</option>
-                  <option value="male">{t.male}</option>
-                  <option value="female">{t.female}</option>
-                </select>
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/25 p-1.5">
+                {[
+                  { id: "seller", label: "당근용", desc: "중고거래", icon: Sparkles },
+                  { id: "instagram", label: "인스타용", desc: "게시물+태그", icon: Instagram },
+                  { id: "youtube", label: "유튜브용", desc: "제목+설명", icon: Youtube },
+                ].map((mode) => {
+                  const Icon = mode.icon;
+                  const isActive = contentMode === mode.id;
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      aria-pressed={isActive}
+                      onClick={() => {
+                        setContentMode(mode.id as ContentMode);
+                        setIsCopied(false);
+                      }}
+                      className={`min-h-[72px] rounded-xl px-2.5 py-3 text-center transition-all ${
+                        isActive
+                          ? "bg-[#ff6f0f] text-white shadow-[0_8px_22px_rgba(255,111,15,0.35)]"
+                          : "text-white/55 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <span className="flex items-center justify-center gap-1.5 text-sm font-black">
+                        <Icon size={16} />
+                        {mode.label}
+                      </span>
+                      <span className="mt-1 block text-[11px] font-semibold opacity-75">{mode.desc}</span>
+                    </button>
+                  );
+                })}
               </div>
+              <p className="px-1 text-xs leading-relaxed text-white/45">
+                {contentMode === "seller"
+                  ? "중고거래 앱에 바로 붙여넣을 판매글과 검색 태그를 만듭니다."
+                  : contentMode === "instagram"
+                    ? "사진과 설명을 바탕으로 인스타 게시물 본문과 노출용 해시태그를 만듭니다."
+                    : "유튜브 쇼츠·커뮤니티에 쓸 제목, 설명, 본문, 해시태그를 함께 만듭니다."}
+              </p>
             </div>
 
-            <div className="flex flex-col">
-              <label className="text-white font-semibold mb-2 text-base">{t.itemName}</label>
-              <input type="text" name="itemName" value={formData.itemName} onChange={handleInputChange} className="w-full bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans" placeholder={t.itemNamePlaceholder} />
-            </div>
+            {contentMode !== "youtube" && (
+              <div className="flex flex-col">
+                <label className="flex items-center text-white font-semibold mb-2 text-base">
+                  {contentMode === "instagram" ? "인스타 사진" : t.photoLabel}
+                  <span className="bg-[#00c9ff]/20 text-[#00c9ff] border border-[#00c9ff]/30 text-xs px-2.5 py-1 rounded-full ml-3 font-bold">{t.photoOptional}</span>
+                </label>
+                <label className="cursor-pointer bg-black/25 hover:bg-black/40 border-[1.5px] border-white/10 border-dashed text-white/70 p-4 rounded-2xl flex items-center justify-center gap-2 flex-1 transition-all">
+                  <Camera size={20} />
+                  <span className="cursor-pointer text-sm font-semibold">
+                    {isPreparingImage
+                      ? t.photoResizing
+                      : imageFile
+                        ? `${imageFile.name} (${AI_IMAGE_SIZE}x${AI_IMAGE_SIZE} ${t.photoAutoAdjust})`
+                        : t.photoUploadHint}
+                  </span>
+                  <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden cursor-pointer" onChange={handleImageChange} />
+                </label>
+                <p className="mt-2 text-xs text-white/45">
+                  {contentMode === "instagram"
+                    ? "사진을 올리고 대충 어떤 게시물인지 적으면 캡션과 해시태그를 만듭니다."
+                    : `업로드한 사진은 작은 경우 키우고 큰 경우 줄여서 ${AI_IMAGE_SIZE}x${AI_IMAGE_SIZE} 분석용 크기로 자동 변환됩니다.`}
+                </p>
+                <div className="mt-3 min-h-16">
+                  {imagePreview && (
+                    <div className="w-16 h-16 rounded-xl border border-white/20 overflow-hidden relative shadow-[0_0_15px_rgba(0,201,255,0.2)]">
+                      <NextImage
+                        src={imagePreview}
+                        alt="preview"
+                        fill
+                        unoptimized
+                        sizes="64px"
+                        className="object-cover"
+                      />
+                      <button onClick={() => { setImageFile(null); setImagePreview(null); setIsPreparingImage(false); }} className="absolute top-1 right-1 bg-black/70 rounded-full p-0.5 text-white">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
-            <div className="flex flex-col">
-              <label className="text-white font-semibold mb-2 text-base">{t.itemDetails}</label>
-              <textarea name="itemDetails" value={formData.itemDetails} onChange={handleInputChange} className="w-full h-[100px] resize-none bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans leading-relaxed" placeholder={t.itemDetailsPlaceholder} />
-            </div>
+            {contentMode === "seller" && (
+              <>
+                <div className="flex flex-col">
+                  <label className="flex items-center text-white font-semibold mb-2 text-base">{t.sellerInfo}</label>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <input type="number" name="birthYear" value={formData.birthYear} onChange={handleInputChange} className="w-full bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans" placeholder={t.birthYearPlaceholder} min="1940" max="2015" />
+                    <select name="gender" value={formData.gender} onChange={handleInputChange} className="cursor-pointer w-full bg-black/25 border-[1.5px] border-white/10 text-white/70 p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans appearance-none">
+                      <option value="" disabled>{t.genderSelect}</option>
+                      <option value="male">{t.male}</option>
+                      <option value="female">{t.female}</option>
+                    </select>
+                  </div>
+                </div>
 
-            <button type="button" disabled={isPreparingImage} onClick={handleGenerateClick} className="mt-2 relative overflow-hidden bg-gradient-to-br from-[#ff416c] to-[#ff6f0f] text-white p-5 rounded-2xl text-[1.15rem] font-extrabold cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_15px_35px_rgba(255,111,15,0.6)] shadow-[0_8px_25px_rgba(255,111,15,0.4)] disabled:opacity-60 disabled:cursor-wait disabled:hover:scale-100">
-              <span className="relative z-10 flex items-center justify-center gap-2">{t.generateBtn} <Sparkles size={20} /></span>
+                <div className="flex flex-col">
+                  <label className="text-white font-semibold mb-2 text-base">{t.itemName}</label>
+                  <input type="text" name="itemName" value={formData.itemName} onChange={handleInputChange} className="w-full bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans" placeholder={t.itemNamePlaceholder} />
+                </div>
+
+                <div className="flex flex-col">
+                  <label className="text-white font-semibold mb-2 text-base">{t.itemDetails}</label>
+                  <textarea name="itemDetails" value={formData.itemDetails} onChange={handleInputChange} className="w-full h-[100px] resize-none bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans leading-relaxed" placeholder={t.itemDetailsPlaceholder} />
+                </div>
+              </>
+            )}
+
+            {contentMode === "instagram" && (
+              <div className="flex flex-col">
+                <label className="text-white font-semibold mb-2 text-base">게시물 내용 요약</label>
+                <textarea
+                  name="instagramBrief"
+                  value={socialFormData.instagramBrief}
+                  onChange={handleSocialInputChange}
+                  className="w-full h-[140px] resize-none bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans leading-relaxed"
+                  placeholder="예: 오늘 카페에서 찍은 사진. 따뜻하고 조용한 분위기, 주말 기록 느낌으로 자연스럽게 써줘."
+                />
+              </div>
+            )}
+
+            {contentMode === "youtube" && (
+              <>
+                <div className="flex flex-col">
+                  <label className="text-white font-semibold mb-2 text-base">유튜브 영상 URL</label>
+                  <input
+                    type="url"
+                    name="youtubeVideoUrl"
+                    value={socialFormData.youtubeVideoUrl}
+                    onChange={handleSocialInputChange}
+                    className="w-full bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                  />
+                </div>
+
+                <div className="flex flex-col">
+                  <label className="text-white font-semibold mb-2 text-base">영상 내용 메모</label>
+                  <textarea
+                    name="youtubeDetails"
+                    value={socialFormData.youtubeDetails}
+                    onChange={handleSocialInputChange}
+                    className="w-full h-[150px] resize-none bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans leading-relaxed"
+                    placeholder="URL이 없거나 보충하고 싶은 영상 내용을 적어주세요. 예: 핵심 장면, 다룬 주제, 시청자가 얻을 정보."
+                  />
+                </div>
+              </>
+            )}
+
+            <button type="button" disabled={contentMode !== "youtube" && isPreparingImage} onClick={handleGenerateClick} className="mt-2 relative overflow-hidden bg-gradient-to-br from-[#ff416c] to-[#ff6f0f] text-white p-5 rounded-2xl text-[1.15rem] font-extrabold cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_15px_35px_rgba(255,111,15,0.6)] shadow-[0_8px_25px_rgba(255,111,15,0.4)] disabled:opacity-60 disabled:cursor-wait disabled:hover:scale-100">
+              <span className="relative z-10 flex items-center justify-center gap-2">{generateButtonLabel} <Sparkles size={20} /></span>
               <div className="absolute top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-20deg] animate-[shine_3s_infinite]" />
             </button>
           </div>
@@ -626,37 +856,64 @@ export default function Home() {
               {resultData ? (
                 <>
                   <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
-                    <h2 className="text-[#ffde00] text-xl font-bold m-0">{t.resultTitle}</h2>
+                    <h2 className="text-[#ffde00] text-xl font-bold m-0">
+                      {resultData.mode === "seller"
+                        ? t.resultTitle
+                        : resultData.mode === "instagram"
+                          ? "🎉 인스타 게시물 완성"
+                          : "🎉 유튜브 게시물 완성"}
+                    </h2>
                   </div>
 
-                  {/* 플랫폼 탭 */}
-                  <div className="flex bg-black/40 rounded-xl p-1 mb-5">
-                    {[
-                      { id: "danggeun", label: t.danggeun },
-                      { id: "joonggonara", label: t.joonggonara },
-                      { id: "bungae", label: t.bungae }
-                    ].map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id as Platform)}
-                        className={`cursor-pointer flex-1 py-3 text-sm font-bold rounded-lg transition-all ${activeTab === tab.id ? "bg-[#ff6f0f] text-white shadow-md transform scale-[1.02]" : "text-white/50 hover:text-white hover:bg-white/5"}`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
+                  {resultData.mode === "seller" && (
+                    <div className="flex bg-black/40 rounded-xl p-1 mb-5">
+                      {[
+                        { id: "danggeun", label: t.danggeun },
+                        { id: "joonggonara", label: t.joonggonara },
+                        { id: "bungae", label: t.bungae }
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id as MarketplacePlatform)}
+                          className={`cursor-pointer flex-1 py-3 text-sm font-bold rounded-lg transition-all ${activeTab === tab.id ? "bg-[#ff6f0f] text-white shadow-md transform scale-[1.02]" : "text-white/50 hover:text-white hover:bg-white/5"}`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="bg-black/35 p-6 rounded-2xl text-[1.05rem] leading-[1.8] text-[#e6e6e6] font-light border-l-[4px] border-[#ffde00] whitespace-pre-wrap min-h-[150px]">
-                    {getCurrentResultText()}
+                    {getDisplayResultText()}
                   </div>
 
-                  {/* SEO 태그 뱃지 */}
-                  {resultData.seo_tags && resultData.seo_tags.length > 0 && (
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      <span className="text-white/40 text-xs font-bold py-1 mr-2">{t.hashtagLabel}</span>
-                      {resultData.seo_tags.map((tag, idx) => (
-                        <div key={idx} className="bg-[#00c9ff]/10 border border-[#00c9ff]/30 text-[#00c9ff] text-xs px-2.5 py-1 rounded-full">{typeof tag === 'string' && tag.startsWith('#') ? tag : `#${tag}`}</div>
-                      ))}
+                  {getCurrentHashtags().length > 0 && (
+                    <div className="mt-5">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-white/40 text-xs font-bold">{t.hashtagLabel}</span>
+                        <button
+                          onClick={copyHashtagsToClipboard}
+                          className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
+                            isHashtagCopied
+                              ? "bg-[#00c9ff]/30 text-[#00c9ff] border border-[#00c9ff]/50"
+                              : "bg-white/5 border border-white/15 text-white/60 hover:bg-[#00c9ff]/10 hover:text-[#00c9ff] hover:border-[#00c9ff]/30"
+                          }`}
+                        >
+                          <Copy size={12} />
+                          {isHashtagCopied
+                            ? "복사됨 ✓"
+                            : resultData?.mode === "youtube"
+                              ? "태그 전체 복사 (쉼표 구분)"
+                              : "태그 전체 복사"}
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {getCurrentHashtags().map((tag, idx) => (
+                          <div key={idx} className="bg-[#00c9ff]/10 border border-[#00c9ff]/30 text-[#00c9ff] text-xs px-2.5 py-1 rounded-full">
+                            {typeof tag === "string" && tag.startsWith("#") ? tag : `#${tag}`}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -664,7 +921,11 @@ export default function Home() {
                   <div className="mt-5">
                     <ShareBar
                       compact
-                      customText="당근·중고나라·번개장터 판매글 AI가 10초에 써줌 😮 사진만 올리면 완성! 무료로 써봐"
+                      customText={
+                        resultData.mode === "seller"
+                          ? "당근·중고나라·번개장터 판매글 AI가 10초에 써줌 😮 사진만 올리면 완성! 무료로 써봐"
+                          : "인스타·유튜브 게시물 본문과 해시태그를 AI가 바로 써줌 📸 무료로 써봐"
+                      }
                     />
                   </div>
                 </>
@@ -685,7 +946,7 @@ export default function Home() {
         </AnimatePresence>
       </main>
 
-      <div className="mx-auto w-full max-w-[650px] px-5 pb-4">
+      <div className="mx-auto w-full max-w-[650px] px-5 pb-4 min-h-[186px]">
         <CoupangBanner />
       </div>
 
@@ -703,6 +964,7 @@ export default function Home() {
       </AnimatePresence>
       <AnimatePresence>{showHistory && <HistoryModal onClose={() => setShowHistory(false)} />}</AnimatePresence>
       <AnimatePresence>{showPayment && <PaymentModal onClose={() => { setShowPayment(false); }} />}</AnimatePresence>
+      <AnimatePresence>{showInquiry && <InquiryModal isOpen={showInquiry} onClose={() => setShowInquiry(false)} userEmail={session?.user?.email ?? null} userName={session?.user?.name ?? null} />}</AnimatePresence>
     </>
   );
 }

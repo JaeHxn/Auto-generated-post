@@ -1,9 +1,18 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import SiteFooter from "./components/SiteFooter";
 import AuthProvider from "./providers";
 
 const siteUrl = "https://daangn-auto-post.pages.dev";
+const fontStylesheetHref =
+  "https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&family=Noto+Sans+KR:wght@400;600;700;900&display=swap";
+const criticalCss = `
+html,body{margin:0;min-height:100%;background:#120e1f;color:#fff;}
+*,*::before,*::after{box-sizing:border-box;}
+body{overflow-x:hidden;font-family:"Noto Sans KR","Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;}
+img,svg,video,canvas{max-width:100%;height:auto;}
+`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -71,9 +80,11 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
+        <style dangerouslySetInnerHTML={{ __html: criticalCss }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet" />
+        <link rel="preload" href={fontStylesheetHref} as="style" />
+        <link href={fontStylesheetHref} rel="stylesheet" />
         <meta name="google-adsense-account" content="ca-pub-5354319294441406" />
         <script
           async
@@ -168,7 +179,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-screen font-sans">
+      <body className="min-h-screen overflow-x-hidden bg-[#120e1f] font-sans antialiased">
         <AuthProvider>
           <div className="fixed left-0 top-0 -z-10 h-full w-full overflow-hidden pointer-events-none">
             <div className="absolute -left-[150px] -top-[150px] h-[500px] w-[500px] animate-[drift_20s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)] rounded-full bg-[#ff6f0f] opacity-50 blur-[100px]" />
@@ -180,6 +191,13 @@ export default function RootLayout({
             <SiteFooter />
           </div>
         </AuthProvider>
+        {/* Kakao JavaScript SDK */}
+        <Script
+          src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
+          integrity="sha384-TiCUE00h649CAMonG018J2ujOgDKW/kVWlChEuu4jK2vxfAAD0eZxzCKakxg55G4"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );

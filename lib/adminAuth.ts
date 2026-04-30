@@ -1,7 +1,6 @@
 // adminAuth.ts: Edge Runtime 호환 관리자 토큰 서명/검증 유틸
 // Web Crypto API (crypto.subtle) 사용 — Node.js API 사용 금지
 
-const ALGORITHM = "HMAC-SHA256";
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24시간
 
 function base64urlEncode(buffer: ArrayBuffer): string {
@@ -22,6 +21,12 @@ function base64urlDecode(str: string): Uint8Array {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
 }
 
 async function importHmacKey(secret: string): Promise<CryptoKey> {
@@ -77,8 +82,8 @@ export async function verifyAdminToken(token: string): Promise<boolean> {
     const isValid = await crypto.subtle.verify(
       "HMAC",
       key,
-      signatureBytes,
-      payloadBytes
+      toArrayBuffer(signatureBytes),
+      toArrayBuffer(payloadBytes)
     );
 
     if (!isValid) return false;

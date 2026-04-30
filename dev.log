@@ -1,0 +1,201 @@
+
+> karrot-magic-seller@0.1.0 dev
+> next dev
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.21.1:3000
+- Experiments (use with caution):
+  · serverActions
+
+✓ Starting...
+✓ Ready in 936ms
+⨯ ./app/globals.css:2023:8
+Parsing CSS source code failed
+[0m [90m 2021 |[39m   }
+ [90m 2022 |[39m }
+[31m[1m>[22m[39m[90m 2023 |[39m [33m@[39m[36mimport[39m url([32m"https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&family=Noto+Sans+KR:wght@400;600;700;900&display=swap"[39m)[33m;[39m
+ [90m      |[39m        [31m[1m^[22m[39m
+ [90m 2024 |[39m [33m:[39mroot {
+ [90m 2025 |[39m   [33m--[39mprimary[33m:[39m [33m#[39mff6f0f[33m;[39m
+ [90m 2026 |[39m   [33m--[39msecondary[33m:[39m [33m#[39m[35m8[39mc52ff[33m;[39m[0m
+
+@import rules must precede all rules aside from @charset and @layer statements
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Edge Server Component]
+
+
+ GET / 500 in 1112ms (compile: 947ms, render: 166ms)
+⨯ ./app/globals.css:2023:8
+Parsing CSS source code failed
+[0m [90m 2021 |[39m   }
+ [90m 2022 |[39m }
+[31m[1m>[22m[39m[90m 2023 |[39m [33m@[39m[36mimport[39m url([32m"https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&family=Noto+Sans+KR:wght@400;600;700;900&display=swap"[39m)[33m;[39m
+ [90m      |[39m        [31m[1m^[22m[39m
+ [90m 2024 |[39m [33m:[39mroot {
+ [90m 2025 |[39m   [33m--[39mprimary[33m:[39m [33m#[39mff6f0f[33m;[39m
+ [90m 2026 |[39m   [33m--[39msecondary[33m:[39m [33m#[39m[35m8[39mc52ff[33m;[39m[0m
+
+@import rules must precede all rules aside from @charset and @layer statements
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Edge Server Component]
+
+
+ GET / 500 in 47ms (compile: 40ms, render: 7ms)
+⨯ ./app/globals.css:2023:8
+Parsing CSS source code failed
+[0m [90m 2021 |[39m   }
+ [90m 2022 |[39m }
+[31m[1m>[22m[39m[90m 2023 |[39m [33m@[39m[36mimport[39m url([32m"https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&family=Noto+Sans+KR:wght@400;600;700;900&display=swap"[39m)[33m;[39m
+ [90m      |[39m        [31m[1m^[22m[39m
+ [90m 2024 |[39m [33m:[39mroot {
+ [90m 2025 |[39m   [33m--[39mprimary[33m:[39m [33m#[39mff6f0f[33m;[39m
+ [90m 2026 |[39m   [33m--[39msecondary[33m:[39m [33m#[39m[35m8[39mc52ff[33m;[39m[0m
+
+@import rules must precede all rules aside from @charset and @layer statements
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Edge Server Component]
+
+
+ GET / 500 in 99ms (compile: 85ms, render: 14ms)
+⨯ ./app/globals.css:2023:8
+Parsing CSS source code failed
+[0m [90m 2021 |[39m   }
+ [90m 2022 |[39m }
+[31m[1m>[22m[39m[90m 2023 |[39m [33m@[39m[36mimport[39m url([32m"https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&family=Noto+Sans+KR:wght@400;600;700;900&display=swap"[39m)[33m;[39m
+ [90m      |[39m        [31m[1m^[22m[39m
+ [90m 2024 |[39m [33m:[39mroot {
+ [90m 2025 |[39m   [33m--[39mprimary[33m:[39m [33m#[39mff6f0f[33m;[39m
+ [90m 2026 |[39m   [33m--[39msecondary[33m:[39m [33m#[39m[35m8[39mc52ff[33m;[39m[0m
+
+@import rules must precede all rules aside from @charset and @layer statements
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Edge Server Component]
+
+
+ GET / 500 in 79ms (compile: 66ms, render: 12ms)
+⨯ ./app/globals.css:2023:8
+Parsing CSS source code failed
+[0m [90m 2021 |[39m   }
+ [90m 2022 |[39m }
+[31m[1m>[22m[39m[90m 2023 |[39m [33m@[39m[36mimport[39m url([32m"https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&family=Noto+Sans+KR:wght@400;600;700;900&display=swap"[39m)[33m;[39m
+ [90m      |[39m        [31m[1m^[22m[39m
+ [90m 2024 |[39m [33m:[39mroot {
+ [90m 2025 |[39m   [33m--[39mprimary[33m:[39m [33m#[39mff6f0f[33m;[39m
+ [90m 2026 |[39m   [33m--[39msecondary[33m:[39m [33m#[39m[35m8[39mc52ff[33m;[39m[0m
+
+@import rules must precede all rules aside from @charset and @layer statements
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Edge Server Component]
+
+
+ GET / 500 in 85ms (compile: 72ms, render: 13ms)
+⨯ ./app/globals.css:2023:8
+Parsing CSS source code failed
+[0m [90m 2021 |[39m   }
+ [90m 2022 |[39m }
+[31m[1m>[22m[39m[90m 2023 |[39m [33m@[39m[36mimport[39m url([32m"https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&family=Noto+Sans+KR:wght@400;600;700;900&display=swap"[39m)[33m;[39m
+ [90m      |[39m        [31m[1m^[22m[39m
+ [90m 2024 |[39m [33m:[39mroot {
+ [90m 2025 |[39m   [33m--[39mprimary[33m:[39m [33m#[39mff6f0f[33m;[39m
+ [90m 2026 |[39m   [33m--[39msecondary[33m:[39m [33m#[39m[35m8[39mc52ff[33m;[39m[0m
+
+@import rules must precede all rules aside from @charset and @layer statements
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Edge Server Component]
+
+
+⨯ ./app/globals.css:2023:8
+Parsing CSS source code failed
+[0m [90m 2021 |[39m   }
+ [90m 2022 |[39m }
+[31m[1m>[22m[39m[90m 2023 |[39m [33m@[39m[36mimport[39m url([32m"https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&family=Noto+Sans+KR:wght@400;600;700;900&display=swap"[39m)[33m;[39m
+ [90m      |[39m        [31m[1m^[22m[39m
+ [90m 2024 |[39m [33m:[39mroot {
+ [90m 2025 |[39m   [33m--[39mprimary[33m:[39m [33m#[39mff6f0f[33m;[39m
+ [90m 2026 |[39m   [33m--[39msecondary[33m:[39m [33m#[39m[35m8[39mc52ff[33m;[39m[0m
+
+@import rules must precede all rules aside from @charset and @layer statements
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Edge Server Component]
+
+
+ GET / 500 in 53ms (compile: 43ms, render: 9ms)
+⨯ ./app/globals.css:2023:8
+Parsing CSS source code failed
+[0m [90m 2021 |[39m   }
+ [90m 2022 |[39m }
+[31m[1m>[22m[39m[90m 2023 |[39m [33m@[39m[36mimport[39m url([32m"https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&family=Noto+Sans+KR:wght@400;600;700;900&display=swap"[39m)[33m;[39m
+ [90m      |[39m        [31m[1m^[22m[39m
+ [90m 2024 |[39m [33m:[39mroot {
+ [90m 2025 |[39m   [33m--[39mprimary[33m:[39m [33m#[39mff6f0f[33m;[39m
+ [90m 2026 |[39m   [33m--[39msecondary[33m:[39m [33m#[39m[35m8[39mc52ff[33m;[39m[0m
+
+@import rules must precede all rules aside from @charset and @layer statements
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Edge Server Component]
+
+
+ GET / 500 in 43ms (compile: 37ms, render: 6ms)
+ GET / 200 in 485ms
+ GET / 200 in 483ms
+[AUTH] Disabled due to missing environment variables: AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, AUTH_SECRET
+ GET /api/auth/session 200 in 294ms
+ GET /api/auth/session 200 in 30ms
+ GET /api/auth/session 200 in 13ms
+ GET /api/auth/session 200 in 12ms
+ GET / 200 in 202ms
+ GET / 200 in 241ms
+ GET / 200 in 73ms
+ GET / 200 in 47ms
+ GET / 200 in 74ms
+ GET /api/auth/session 200 in 10ms
+ GET /api/auth/session 200 in 6ms
+ GET /api/auth/session 200 in 7ms
+ GET /api/auth/session 200 in 18ms
+ GET / 200 in 79ms
+ GET /api/auth/session 200 in 72ms
+ GET /api/auth/session 200 in 11ms
+ GET /api/auth/session 200 in 6ms
+ GET /api/auth/session 200 in 5ms
+✓ Compiled in 41ms
+ GET /api/auth/session 200 in 6ms
+ GET /api/auth/session 200 in 7ms
+ GET /api/auth/session 200 in 6ms
+ GET /api/auth/session 200 in 6ms
+✓ Compiled in 29ms
+ GET / 200 in 312ms
+ GET /api/auth/session 200 in 9ms
+ GET /api/auth/session 200 in 7ms
+ GET /api/auth/csrf 503 in 7ms
+ POST /api/auth/signout 503 in 11ms
+ GET / 200 in 73ms
+ GET /api/auth/session 200 in 7ms
+ GET /api/auth/session 200 in 6ms
+[AUTH] Disabled due to missing environment variables: AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, AUTH_SECRET
+ POST / 200 in 71ms
+[?25h

@@ -11,7 +11,7 @@ const translations = {
     "header.storage": "📦 보관함",
     "header.logout": "로그아웃",
     "header.loginGoogle": "Google 로그인",
-    "header.loginBenefit": "로그인하면 5회 ▶",
+    "header.loginBenefit": "로그인하면 2회 ▶",
     "header.freeCountLoggedIn": (remaining: number, limit: number, credits: number | null) =>
       credits !== null
         ? `무료 ${remaining}/${limit}회 + 크레딧 ${credits}💎`
@@ -106,7 +106,7 @@ const translations = {
     "roulette.winPrize": "로그인 보너스 +1회 이용권 🎁",
     "roulette.winDescLoggedIn": "내일 다시 무료 횟수가 초기화됩니다.",
     "roulette.winDescGuest": "구글 로그인하면 하루 2회로 늘어납니다!",
-    "roulette.loginForFive": "Google로 로그인하고 5회 받기",
+    "roulette.loginForFive": "Google로 로그인하고 2회 받기",
     "roulette.close": "닫기",
     "roulette.prizeLabel": "로그인 +1",
   },

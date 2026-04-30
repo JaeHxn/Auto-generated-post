@@ -1,13 +1,14 @@
 "use client";
 // ShareBar.tsx: 바이럴 URL 공유 컴포넌트
-// 역할: 카카오톡·X·페이스북·링크복사·Web Share API로 마케팅 공유 지원
-// UTM 파라미터를 포함해 유입 채널별 트래킹 가능
+// 역할: 카카오톡(SDK)·X·페이스북·링크복사·Web Share API로 마케팅 공유 지원
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 const SITE_URL = "https://daangn-auto-post.pages.dev";
 const SHARE_TEXT = "당근·중고나라·번개장터 판매글, AI가 10초에 써줌 😮 사진만 올리면 완성! 무료로 써봐";
 const SHARE_HASHTAGS = "매직셀러,중고거래,당근마켓,AI글쓰기,중고판매팁";
+const OG_IMAGE_URL = `${SITE_URL}/og-image.png`;
+const KAKAO_APP_KEY = process.env.NEXT_PUBLIC_KAKAO_APP_KEY ?? "";
 
 function buildUtmUrl(medium: string, campaign = "viral_share") {
   const params = new URLSearchParams({
@@ -16,6 +17,30 @@ function buildUtmUrl(medium: string, campaign = "viral_share") {
     utm_campaign: campaign,
   });
   return `${SITE_URL}?${params.toString()}`;
+}
+
+// Kakao SDK 전역 타입 선언
+type KakaoSDK = {
+  init: (appKey: string) => void;
+  isInitialized: () => boolean;
+  Share: {
+    sendDefault: (settings: {
+      objectType: string;
+      content: {
+        title: string;
+        description: string;
+        imageUrl: string;
+        link: { mobileWebUrl: string; webUrl: string };
+      };
+      buttons?: Array<{ title: string; link: { mobileWebUrl: string; webUrl: string } }>;
+    }) => void;
+  };
+};
+
+declare global {
+  interface Window {
+    Kakao?: KakaoSDK;
+  }
 }
 
 // ─── 아이콘 SVG ──────────────────────────────────────────────
@@ -86,21 +111,72 @@ interface ShareBarProps {
 
 export default function ShareBar({ customText, customUrl, compact = false }: ShareBarProps) {
   const [copied, setCopied] = useState(false);
+  const [kakaoReady, setKakaoReady] = useState(false);
 
   const shareText = customText ?? SHARE_TEXT;
 
-  // ── 카카오톡 (Web Share 링크) ─────────────────────────────
+  // ── Kakao SDK 초기화 ──────────────────────────────────────
+  useEffect(() => {
+    const tryInit = () => {
+      if (typeof window !== "undefined" && window.Kakao) {
+        if (!window.Kakao.isInitialized() && KAKAO_APP_KEY) {
+          window.Kakao.init(KAKAO_APP_KEY);
+        }
+        setKakaoReady(true);
+      }
+    };
+    tryInit();
+    // SDK 스크립트가 늦게 로드될 경우 재시도
+    const timer = setTimeout(tryInit, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // ── 카카오톡 공유 (Kakao SDK) ─────────────────────────────
   const shareKakao = useCallback(() => {
     const url = buildUtmUrl("kakaotalk");
-    const kakaoLink = `https://sharer.kakao.com/talk/friends/picker/link?app_key=KAKAO_APP_KEY&lang=ko&url=${encodeURIComponent(url)}&text=${encodeURIComponent(shareText)}`;
-    // Kakao SDK 없이 단순 링크 버전: 카카오 공유 페이지로 이동
-    // 실 서비스에선 Kakao.Share.sendDefault() 사용 권장
-    window.open(
-      `https://story.kakao.com/share?url=${encodeURIComponent(url)}`,
-      "_blank",
-      "width=600,height=500"
-    );
-  }, [shareText]);
+    if (kakaoReady && typeof window !== "undefined" && window.Kakao?.Share) {
+      window.Kakao.Share.sendDefault({
+        objectType: "feed",
+        content: {
+          title: "Magic Seller",
+          description: shareText,
+          imageUrl: OG_IMAGE_URL,
+          link: { mobileWebUrl: url, webUrl: url },
+        },
+        buttons: [
+          {
+            title: "무료로 써보기",
+            link: { mobileWebUrl: url, webUrl: url },
+          },
+        ],
+      });
+      return;
+    }
+    // Kakao SDK 미로드 시 Web Share API → 클립보드 복사 fallback
+    const fallback = async () => {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        try {
+          await navigator.share({ title: "Magic Seller", text: shareText, url });
+          return;
+        } catch {
+          return;
+        }
+      }
+      try {
+        await navigator.clipboard.writeText(`${shareText}\n${url}`);
+      } catch {
+        const el = document.createElement("input");
+        el.value = `${shareText}\n${url}`;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    };
+    fallback();
+  }, [shareText, kakaoReady]);
 
   // ── X (Twitter) ───────────────────────────────────────────
   const shareX = useCallback(() => {
@@ -116,9 +192,9 @@ export default function ShareBar({ customText, customUrl, compact = false }: Sha
     window.open(fbUrl, "_blank", "width=600,height=500");
   }, [shareText]);
 
-  // ── 링크 복사 ─────────────────────────────────────────────
+  // ── 링크 복사 (UTM 없이 깔끔한 URL) ──────────────────────
   const copyLink = useCallback(async () => {
-    const url = customUrl ?? buildUtmUrl("copy_link");
+    const url = customUrl ?? SITE_URL;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);

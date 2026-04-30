@@ -9,9 +9,7 @@ const MIN_CONTENT_BLOCKS = 3;
 const TEMPLATE_MARKER_REGEX = /\[(?:사진 관찰|추가 안내|문의 안내|입력된 특징|거래 안내|상품명)\]/;
 const META_COPY_REGEX =
     /입력해주신 내용|읽기 쉽게 정리|안내드립니다|핵심 정보를|제공된 정보|상세히 정리|문의 주시면 입력된 정보 범위|본 문구는|기준으로 정리했습니다/;
-const VISUAL_CUE_REGEX = /사진|이미지|보이는|확인되는|외관|라벨|색상|포장|박스|구성품|스크래치|기스|찍힘|오염|패키지/;
-const IMAGE_ANALYSIS_FAILURE_REGEX = /확인(?:되는)? 정보가 없|판단이 어렵|식별이 어렵|명확하지 않|알 수 없|불분명|사진이 흐릿|분석 실패/;
-const EMPTY_IMAGE_RESPONSE_REGEX = /^["']?\s*(?:없음|없습니다|none|null)?\s*["']?$/i;
+
 
 export class TextProcessingSkill {
     public static normalizeSeoTags(raw: unknown): string[] {

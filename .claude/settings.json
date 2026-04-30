@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm run build)",
+      "Bash(npm run dev)",
+      "Bash(npx tsc --noEmit*)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "command": "npx tsc --noEmit --pretty false 2>&1 | head -10 || true",
+        "description": "TypeScript 타입 체크"
+      }
+    ],
+    "Stop": [
+      {
+        "command": "npm run lint 2>&1 | tail -5 || true",
+        "description": "세션 종료 시 ESLint 검사"
+      }
+    ]
+  }
+}
