@@ -130,8 +130,11 @@ export default function AdminDashboardPage() {
       if (!res.ok) {
         throw new Error(`서버 오류 (${res.status})`);
       }
-      const data = await res.json() as AdminStats;
-      setStats(data);
+      const json = await res.json() as { success: boolean; data?: AdminStats; error?: string };
+      if (!json.success || !json.data) {
+        throw new Error(json.error ?? "데이터를 불러올 수 없습니다.");
+      }
+      setStats(json.data);
       setLastUpdated(new Date());
       setFetchError(null);
     } catch (err: unknown) {
