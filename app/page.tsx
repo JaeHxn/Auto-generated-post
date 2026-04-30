@@ -13,7 +13,12 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import HistoryModal from "./HistoryModal";
 import HomeEditorialSections from "./components/HomeEditorialSections";
 import PaymentModal from "./components/PaymentModal";
+import CoupangBanner from "./components/CoupangBanner";
+import SiteHeader from "./components/SiteHeader";
+import { Locale, useDict, getStoredLocale } from "./i18n";
 import { trackEvent } from "@/lib/analytics";
+import { logAccess } from "@/lib/accessLog";
+import ShareBar from "./components/ShareBar";
 
 type GachaState = "hidden" | "card_ready" | "card_flipped" | "result";
 type Platform = "danggeun" | "joonggonara" | "bungae";
@@ -92,8 +97,9 @@ async function normalizeImageForAI(file: File): Promise<string> {
   return canvas.toDataURL(AI_IMAGE_TYPE, AI_IMAGE_QUALITY);
 }
 
-function RouletteModal({ isLoggedIn, onClose, onLogin }: { isLoggedIn: boolean; onClose: () => void; onLogin: () => void; }) {
-  const prizes = ["로그인 +1", "로그인 +1", "로그인 +1", "로그인 +1", "로그인 +1", "로그인 +1"];
+function RouletteModal({ isLoggedIn, onClose, onLogin, locale }: { isLoggedIn: boolean; onClose: () => void; onLogin: () => void; locale: Locale }) {
+  const t = useDict(locale);
+  const prizes = [t.rouletteLoginBonus, t.rouletteLoginBonus, t.rouletteLoginBonus, t.rouletteLoginBonus, t.rouletteLoginBonus, t.rouletteLoginBonus];
   const [spinning, setSpinning] = useState(false);
   const [angle, setAngle] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -124,8 +130,8 @@ function RouletteModal({ isLoggedIn, onClose, onLogin }: { isLoggedIn: boolean; 
           <>
             <div className="text-center">
               <div className="text-4xl mb-2">🎰</div>
-              <h2 className="text-white text-xl font-black">무료 횟수를 다 썼어요!</h2>
-              <p className="text-white/60 text-sm mt-1">{isLoggedIn ? `오늘 ${USER_DAILY_LIMIT}회 모두 사용했습니다.` : `비로그인 무료는 하루 ${GUEST_DAILY_LIMIT}회입니다.`}</p>
+              <h2 className="text-white text-xl font-black">{t.rouletteTitle}</h2>
+              <p className="text-white/60 text-sm mt-1">{isLoggedIn ? t.rouletteDescLoggedIn : t.rouletteDesc}</p>
             </div>
             <div className="relative w-48 h-48">
               <div className="absolute top-[-10px] left-1/2 -translate-x-1/2 z-10 text-[#ffde00] text-2xl drop-shadow-[0_0_5px_currentColor]">▼</div>
@@ -155,21 +161,21 @@ function RouletteModal({ isLoggedIn, onClose, onLogin }: { isLoggedIn: boolean; 
               </motion.div>
             </div>
             <button onClick={spin} disabled={spinning} className="w-full py-4 rounded-2xl font-black text-lg bg-gradient-to-r from-[#ff416c] to-[#8c52ff] text-white hover:scale-105 transition-transform disabled:opacity-50 shadow-[0_5px_20px_rgba(140,82,255,0.5)]">
-              {spinning ? "룰렛 돌리는 중... 🌀" : "🎰 행운의 룰렛 돌리기!"}
+              {spinning ? t.rouletteSpinning : t.rouletteSpin}
             </button>
           </>
         ) : (
           <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center gap-5 text-center">
             <div className="text-6xl">🎉</div>
             <div>
-              <div className="text-[#ffde00] text-2xl font-black">당첨!</div>
-              <div className="text-white text-lg font-bold mt-1">{isLoggedIn ? "로그인 보너스 +1회 이용권 🎁" : "로그인 보너스 +1회 이용권 🎁"}</div>
-              <p className="text-white/60 text-sm mt-2">{isLoggedIn ? "내일 다시 무료 횟수가 초기화됩니다." : "구글 로그인하면 하루 2회로 늘어납니다!"}</p>
+              <div className="text-[#ffde00] text-2xl font-black">{t.rouletteWin}</div>
+              <div className="text-white text-lg font-bold mt-1">{t.rouletteLoginBonus}</div>
+              <p className="text-white/60 text-sm mt-2">{isLoggedIn ? t.rouletteNextDay : t.rouletteLoginUpgrade}</p>
             </div>
             {!isLoggedIn && (
-              <button onClick={onLogin} className="w-full py-4 rounded-2xl font-black text-lg bg-[#4285F4] text-white hover:scale-105 transition-transform shadow-[0_5px_20px_rgba(66,133,244,0.4)]">Google로 로그인하고 5회 받기</button>
+              <button onClick={onLogin} className="w-full py-4 rounded-2xl font-black text-lg bg-[#4285F4] text-white hover:scale-105 transition-transform shadow-[0_5px_20px_rgba(66,133,244,0.4)]">{t.rouletteLoginBtn}</button>
             )}
-            <button onClick={onClose} className="text-white/40 text-sm hover:text-white">닫기</button>
+            <button onClick={onClose} className="text-white/40 text-sm hover:text-white">{t.rouletteClose}</button>
           </motion.div>
         )}
       </motion.div>
@@ -181,6 +187,13 @@ export default function Home() {
   const { data: session, status } = useSession();
   const isLoggedIn = status === "authenticated";
   const isLoading = status === "loading";
+
+  const [locale, setLocale] = useState<Locale>("ko");
+  useEffect(() => { setLocale(getStoredLocale()); }, []);
+  useEffect(() => {
+    logAccess(window.location.pathname, session?.user?.email ?? undefined);
+  }, [session]);
+  const t = useDict(locale);
 
   const [formData, setFormData] = useState({
     birthYear: "",
@@ -217,10 +230,10 @@ export default function Home() {
 
   const [loadingStep, setLoadingStep] = useState(0);
   const loadingSteps = [
-    "사진 데이터를 분석하는 중...",
-    "판매자의 말투 페르소나를 파악 중...",
-    "당근, 중고나라용 최적화 문구 구성 중...",
-    "마지막으로 완벽한 태그를 뽑는 중..."
+    t.loadingStep0,
+    t.loadingStep1,
+    t.loadingStep2,
+    t.loadingStep3
   ];
 
 
@@ -240,7 +253,7 @@ export default function Home() {
 
     const fileType = file.type.toLowerCase();
     if (fileType.includes("heic") || fileType.includes("heif")) {
-      alert("HEIC/HEIF 사진은 바로 분석하지 못합니다. JPG, PNG, WEBP 형식으로 변환 후 업로드해 주세요.");
+      alert(t.heicError);
       e.target.value = "";
       return;
     }
@@ -292,12 +305,12 @@ export default function Home() {
 
   const handleGenerateClick = async () => {
     if (!formData.birthYear || !formData.gender || !formData.itemName || !formData.itemDetails) {
-      alert("Please fill in all seller and item fields.");
+      alert(t.fillAllFields);
       return;
     }
 
     if (isPreparingImage) {
-      alert("Image is still being resized for AI analysis. Please try again in a moment.");
+      alert(t.imageStillResizing);
       return;
     }
 
@@ -473,62 +486,33 @@ export default function Home() {
   return (
     <>
       <main className="container mx-auto max-w-[650px] px-5 py-12 relative">
-        <header className="text-center mb-10 relative">
-          <div className="absolute right-0 top-0">
-            {isLoading ? <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" /> : isLoggedIn ? (
-              <div className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1.5 border border-white/20">
-                {session?.user?.image && (
-                  <NextImage
-                    src={session.user.image}
-                    alt="profile"
-                    width={28}
-                    height={28}
-                    unoptimized
-                    className="w-7 h-7 rounded-full border border-white/30"
-                  />
-                )}
-                <span className="text-white/80 text-xs font-semibold hidden sm:block">{session?.user?.name?.split(" ")[0]}</span>
-                <button type="button" onClick={() => { setShowPayment(true); trackEvent("payment_modal_open"); }} className="text-[#ffde00] font-bold text-xs ml-2 hover:underline bg-transparent border-0 p-0">💳 충전</button>
-                <button onClick={() => setShowHistory(true)} className="text-white/70 hover:text-[#ffde00] transition-colors ml-2 mr-1" title="보관함">📦 보관함</button>
-                <button onClick={() => signOut()} className="text-white/40 hover:text-white transition-colors ml-1" title="로그아웃"><LogOut size={14} /></button>
-              </div>
-            ) : (
-              <button onClick={() => signIn("google")} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-bold px-4 py-2 rounded-full transition-all hover:scale-105 shadow-[0_4px_15px_rgba(0,0,0,0.3)]">
-                <LogIn size={14} /> Google 로그인
-              </button>
-            )}
-          </div>
-
-          <div className="inline-block bg-gradient-to-r from-[#ffb88c] to-[#ff6f0f] text-black text-xs font-black px-4 py-1.5 rounded-full mb-3 tracking-wider shadow-[0_0_15px_rgba(255,111,15,0.4)]">PRO VERSION</div>
-          <h1 className="text-5xl font-extrabold tracking-tight font-outfit m-0">Magic <span className="bg-gradient-to-br from-[#ff6f0f] to-[#ffa366] text-transparent bg-clip-text">Seller</span></h1>
-          <p className="text-[#b3b3b3] text-lg mt-3">당신의 중고물품, 명품처럼 포장해 드립니다 🥕</p>
-
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <div className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold border ${currentRemaining === 0 && (creditsCount || 0) === 0 ? "bg-red-500/20 border-red-500/50 text-red-400" : isLoggedIn ? "bg-[#00c9ff]/10 border-[#00c9ff]/30 text-[#00c9ff]" : "bg-white/10 border-white/20 text-white/70"}`}>
-              <Zap size={14} />
-              {isLoggedIn ? `무료 ${currentRemaining}/${currentLimit}회 ${creditsCount !== null ? `+ 크레딧 ${creditsCount}💎` : ''}` : `무료 ${currentRemaining}/${currentLimit}회`}
-            </div>
-            {!isLoggedIn && <button onClick={() => signIn("google")} className="text-xs text-[#ffde00] hover:underline font-semibold">로그인하면 5회 ▶</button>}
-          </div>
-        </header>
+        <SiteHeader
+          locale={locale}
+          onLocaleChange={setLocale}
+          remainingCount={remainingCount}
+          creditsCount={creditsCount}
+          guestCount={guestCount}
+          onOpenPayment={() => { setShowPayment(true); trackEvent("payment_modal_open"); }}
+          onOpenHistory={() => setShowHistory(true)}
+        />
 
         {isLoggedIn && !personaSaved && (
           <div className="bg-gradient-to-r from-[#8c52ff]/20 to-[#ff416c]/20 border border-[#8c52ff]/40 rounded-2xl p-5 mb-5 shadow-[0_0_25px_rgba(140,82,255,0.15)] relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-40 transition-opacity"><Instagram size={60} /></div>
-            <h3 className="text-white font-bold flex items-center gap-2 mb-2 text-sm"><Sparkles size={16} className="text-[#ffde00]" /> [PRO] 나만의 인스타 말투 학습 (선택)</h3>
-            <p className="text-white/60 text-xs mb-3 leading-relaxed">내 인스타그램이나 평소 작성했던 글을 붙여넣으세요. AI가 말투, 이모지, 성향을 파악해 나만의 페르소나로 판매글을 적어줍니다.</p>
+            <h3 className="text-white font-bold flex items-center gap-2 mb-2 text-sm"><Sparkles size={16} className="text-[#ffde00]" /> {t.proPersonaTitle}</h3>
+            <p className="text-white/60 text-xs mb-3 leading-relaxed">{t.proPersonaDesc}</p>
             <div className="flex gap-2">
               <textarea
                 value={instagramTexts}
                 onChange={e => setInstagramTexts(e.target.value)}
-                placeholder="최근에 쓴 인스타 게시글 본문 여러개를 복사해서 여기에 붙여넣어주세요 (50자 이상)"
+                placeholder={t.proPersonaPlaceholder}
                 className="w-full bg-black/40 border border-white/20 p-3 rounded-xl text-white text-xs h-[60px] resize-none focus:outline-none focus:border-[#8c52ff]"
               />
               <button
                 onClick={handleAnalyzePersona}
                 className="cursor-pointer bg-[#8c52ff] hover:bg-[#7b42f5] text-white px-4 rounded-xl text-xs font-bold whitespace-nowrap disabled:opacity-50 transition-colors shadow-[0_4px_15px_rgba(140,82,255,0.4)]"
               >
-                {isAnalyzingPersona ? "분석 중..." : "말투\n학습하기"}
+                {isAnalyzingPersona ? t.proPersonaAnalyzing : <span className="whitespace-pre-line">{t.proPersonaBtn}</span>}
               </button>
             </div>
           </div>
@@ -540,16 +524,16 @@ export default function Home() {
             {/* Vision AI 파일 업로드 */}
             <div className="flex flex-col">
               <label className="flex items-center text-white font-semibold mb-2 text-base">
-                📸 제품 사진 <span className="bg-[#00c9ff]/20 text-[#00c9ff] border border-[#00c9ff]/30 text-xs px-2.5 py-1 rounded-full ml-3 font-bold">옵션</span>
+                {t.photoLabel} <span className="bg-[#00c9ff]/20 text-[#00c9ff] border border-[#00c9ff]/30 text-xs px-2.5 py-1 rounded-full ml-3 font-bold">{t.photoOptional}</span>
               </label>
               <label className="cursor-pointer bg-black/25 hover:bg-black/40 border-[1.5px] border-white/10 border-dashed text-white/70 p-4 rounded-2xl flex items-center justify-center gap-2 flex-1 transition-all">
                 <Camera size={20} />
                 <span className="cursor-pointer text-sm font-semibold">
                   {isPreparingImage
-                    ? `사진을 ${AI_IMAGE_SIZE}x${AI_IMAGE_SIZE} 분석용 크기로 맞추는 중...`
+                    ? t.photoResizing
                     : imageFile
-                      ? `${imageFile.name} (${AI_IMAGE_SIZE}x${AI_IMAGE_SIZE} 분석용으로 자동 조정)`
-                      : "사진을 업로드하면 AI가 상태를 파악해요"}
+                      ? `${imageFile.name} (${AI_IMAGE_SIZE}x${AI_IMAGE_SIZE} ${t.photoAutoAdjust})`
+                      : t.photoUploadHint}
                 </span>
                 <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden cursor-pointer" onChange={handleImageChange} />
               </label>
@@ -573,29 +557,29 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col">
-              <label className="flex items-center text-white font-semibold mb-2 text-base">판매자 정보</label>
+              <label className="flex items-center text-white font-semibold mb-2 text-base">{t.sellerInfo}</label>
               <div className="flex flex-col sm:flex-row gap-3">
-                <input type="number" name="birthYear" value={formData.birthYear} onChange={handleInputChange} className="w-full bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans" placeholder="출생연도 (예: 1990)" min="1940" max="2015" />
+                <input type="number" name="birthYear" value={formData.birthYear} onChange={handleInputChange} className="w-full bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans" placeholder={t.birthYearPlaceholder} min="1940" max="2015" />
                 <select name="gender" value={formData.gender} onChange={handleInputChange} className="cursor-pointer w-full bg-black/25 border-[1.5px] border-white/10 text-white/70 p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans appearance-none">
-                  <option value="" disabled>성별 선택</option>
-                  <option value="male">남성</option>
-                  <option value="female">여성</option>
+                  <option value="" disabled>{t.genderSelect}</option>
+                  <option value="male">{t.male}</option>
+                  <option value="female">{t.female}</option>
                 </select>
               </div>
             </div>
 
             <div className="flex flex-col">
-              <label className="text-white font-semibold mb-2 text-base">판매할 물품명</label>
-              <input type="text" name="itemName" value={formData.itemName} onChange={handleInputChange} className="w-full bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans" placeholder="예: 다이슨 에어랩 컴플리트 롱" />
+              <label className="text-white font-semibold mb-2 text-base">{t.itemName}</label>
+              <input type="text" name="itemName" value={formData.itemName} onChange={handleInputChange} className="w-full bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans" placeholder={t.itemNamePlaceholder} />
             </div>
 
             <div className="flex flex-col">
-              <label className="text-white font-semibold mb-2 text-base">특징 및 장단점 솔직하게</label>
-              <textarea name="itemDetails" value={formData.itemDetails} onChange={handleInputChange} className="w-full h-[100px] resize-none bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans leading-relaxed" placeholder="예: 3년 썼는데 케이스 씌워 써서 상태 좋습니다. 모서리 흠집 하나 있음." />
+              <label className="text-white font-semibold mb-2 text-base">{t.itemDetails}</label>
+              <textarea name="itemDetails" value={formData.itemDetails} onChange={handleInputChange} className="w-full h-[100px] resize-none bg-black/25 border-[1.5px] border-white/10 text-white p-4 rounded-2xl focus:outline-none focus:border-[#ff6f0f] focus:bg-black/40 transition-all font-sans leading-relaxed" placeholder={t.itemDetailsPlaceholder} />
             </div>
 
             <button type="button" disabled={isPreparingImage} onClick={handleGenerateClick} className="mt-2 relative overflow-hidden bg-gradient-to-br from-[#ff416c] to-[#ff6f0f] text-white p-5 rounded-2xl text-[1.15rem] font-extrabold cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_15px_35px_rgba(255,111,15,0.6)] shadow-[0_8px_25px_rgba(255,111,15,0.4)] disabled:opacity-60 disabled:cursor-wait disabled:hover:scale-100">
-              <span className="relative z-10 flex items-center justify-center gap-2">마법처럼 판매글 생성하기 <Sparkles size={20} /></span>
+              <span className="relative z-10 flex items-center justify-center gap-2">{t.generateBtn} <Sparkles size={20} /></span>
               <div className="absolute top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-20deg] animate-[shine_3s_infinite]" />
             </button>
           </div>
@@ -606,8 +590,8 @@ export default function Home() {
             <div className="absolute inset-0 bg-black/85 backdrop-blur-xl" />
             <div className="relative z-50 flex flex-col items-center justify-center w-full max-w-sm perspective-1000">
               <div className="text-center mb-10 min-h-[60px]">
-                {gachaState === "card_ready" && <div className="animate-[slideUp_0.4s_ease-out]"><p className="text-white text-xl font-bold animate-bounce">👇 카드를 터치하여 결과를 확인하세요 👇</p></div>}
-                {gachaState === "card_flipped" && <div className="animate-[slideUp_0.4s_ease-out]"><p className="text-[#ffde00] text-base font-semibold animate-pulse">🤖 AI가 당신만의 프리미엄 판매글을 작성 중입니다...</p></div>}
+                {gachaState === "card_ready" && <div className="animate-[slideUp_0.4s_ease-out]"><p className="text-white text-xl font-bold animate-bounce">{t.tapCard}</p></div>}
+                {gachaState === "card_flipped" && <div className="animate-[slideUp_0.4s_ease-out]"><p className="text-[#ffde00] text-base font-semibold animate-pulse">{t.aiWriting}</p></div>}
               </div>
               <div
                 role="button"
@@ -642,15 +626,15 @@ export default function Home() {
               {resultData ? (
                 <>
                   <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
-                    <h2 className="text-[#ffde00] text-xl font-bold m-0">🎉 맞춤형 판매글 완성</h2>
+                    <h2 className="text-[#ffde00] text-xl font-bold m-0">{t.resultTitle}</h2>
                   </div>
 
                   {/* 플랫폼 탭 */}
                   <div className="flex bg-black/40 rounded-xl p-1 mb-5">
                     {[
-                      { id: "danggeun", label: "🥕 당근마켓" },
-                      { id: "joonggonara", label: "📦 중고나라" },
-                      { id: "bungae", label: "⚡ 번개장터" }
+                      { id: "danggeun", label: t.danggeun },
+                      { id: "joonggonara", label: t.joonggonara },
+                      { id: "bungae", label: t.bungae }
                     ].map((tab) => (
                       <button
                         key={tab.id}
@@ -669,12 +653,20 @@ export default function Home() {
                   {/* SEO 태그 뱃지 */}
                   {resultData.seo_tags && resultData.seo_tags.length > 0 && (
                     <div className="mt-5 flex flex-wrap gap-2">
-                      <span className="text-white/40 text-xs font-bold py-1 mr-2">추천 해시태그:</span>
+                      <span className="text-white/40 text-xs font-bold py-1 mr-2">{t.hashtagLabel}</span>
                       {resultData.seo_tags.map((tag, idx) => (
                         <div key={idx} className="bg-[#00c9ff]/10 border border-[#00c9ff]/30 text-[#00c9ff] text-xs px-2.5 py-1 rounded-full">{typeof tag === 'string' && tag.startsWith('#') ? tag : `#${tag}`}</div>
                       ))}
                     </div>
                   )}
+
+                  {/* 판매글 완성 후 통합 공유 마케팅 바 */}
+                  <div className="mt-5">
+                    <ShareBar
+                      compact
+                      customText="당근·중고나라·번개장터 판매글 AI가 10초에 써줌 😮 사진만 올리면 완성! 무료로 써봐"
+                    />
+                  </div>
                 </>
               ) : (
                 <div className="text-center p-5 text-white/70">{errorText || "결과를 불러오지 못했습니다."}</div>
@@ -682,10 +674,10 @@ export default function Home() {
 
               <div className="mt-8 flex flex-col sm:flex-row gap-4">
                 <button onClick={copyToClipboard} className={`flex-1 p-4 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 ${isCopied ? "bg-[#ff6f0f] text-white border-transparent" : "border-2 border-[#ff6f0f]/50 text-[#ffa366] hover:bg-[#ff6f0f]/10"}`}>
-                  {isCopied ? "복사 완료!" : <><Copy size={18} /> 내용 복사하기</>}
+                  {isCopied ? t.copyDone : <><Copy size={18} /> {t.copyBtn}</>}
                 </button>
                 <button onClick={shareResult} className="flex-1 p-4 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-[#8c52ff] to-[#00c9ff] text-white shadow-lg shadow-[#8c52ff]/30 hover:scale-[1.02]">
-                  <Share2 size={18} /> 공유하기
+                  <Share2 size={18} /> {t.shareBtn}
                 </button>
               </div>
             </motion.section>
@@ -693,12 +685,21 @@ export default function Home() {
         </AnimatePresence>
       </main>
 
+      <div className="mx-auto w-full max-w-[650px] px-5 pb-4">
+        <CoupangBanner />
+      </div>
+
+      {/* 마케팅 공유 바 — 사이트 전파 유도 */}
+      <div className="mx-auto w-full max-w-[650px] px-5 pb-6">
+        <ShareBar />
+      </div>
+
       <div className="mx-auto w-full max-w-[650px] px-5 pb-12">
         <HomeEditorialSections />
       </div>
 
       <AnimatePresence>
-        {showRoulette && <RouletteModal isLoggedIn={isLoggedIn} onClose={() => setShowRoulette(false)} onLogin={() => { setShowRoulette(false); signIn("google"); }} />}
+        {showRoulette && <RouletteModal locale={locale} isLoggedIn={isLoggedIn} onClose={() => setShowRoulette(false)} onLogin={() => { setShowRoulette(false); signIn("google"); }} />}
       </AnimatePresence>
       <AnimatePresence>{showHistory && <HistoryModal onClose={() => setShowHistory(false)} />}</AnimatePresence>
       <AnimatePresence>{showPayment && <PaymentModal onClose={() => { setShowPayment(false); }} />}</AnimatePresence>

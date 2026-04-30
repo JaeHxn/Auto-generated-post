@@ -1,13 +1,46 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import InfoPageShell, { InfoSection } from "../components/InfoPageShell";
 
+import Script from "next/script";
+
+const siteUrl = "https://daangn-auto-post.pages.dev";
+
 export const metadata: Metadata = {
-  title: "문의",
-  description: "Magic Seller의 운영 문의, 결제 문의, 오류 제보 방법을 안내합니다.",
+  title: "문의 및 고객센터 | Magic Seller",
+  description: "Magic Seller의 운영 문의, 결제 문의, 오류 제보 방법을 안내합니다. 언제든 편하게 연락주세요.",
+  keywords: ["매직셀러 고객센터", "결제 문의", "오류 제보", "Magic Seller 문의"],
+  alternates: {
+    canonical: `${siteUrl}/contact`,
+  },
 };
 
 export default function ContactPage() {
+  const contactSchema = {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    name: "Magic Seller 문의",
+    url: `${siteUrl}/contact`,
+    mainEntity: {
+      "@type": "ContactPoint",
+      email: "luvsoul@kakao.com",
+      contactType: "customer support",
+      availableLanguage: "Korean"
+    }
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "홈", item: siteUrl },
+      { "@type": "ListItem", position: 2, name: "문의", item: `${siteUrl}/contact` },
+    ],
+  };
+
   return (
+    <>
+      <Script id="contact-schema" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(contactSchema) }} />
+      <Script id="contact-breadcrumb" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
     <InfoPageShell
       eyebrow="Contact"
       title="문의 및 운영 연락처"
@@ -42,5 +75,6 @@ export default function ContactPage() {
         </p>
       </InfoSection>
     </InfoPageShell>
+    </>
   );
 }

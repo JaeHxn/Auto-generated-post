@@ -1,14 +1,55 @@
-﻿import type { Metadata } from "next";
-import Link from "next/link";
+import type { Metadata } from "next";
 import InfoPageShell, { InfoSection } from "../components/InfoPageShell";
 
+import Script from "next/script";
+
+const siteUrl = "https://daangn-auto-post.pages.dev";
+
 export const metadata: Metadata = {
-  title: "서비스 소개",
-  description: "Magic Seller가 어떤 문제를 해결하는지, 어떤 방식으로 판매글을 생성하는지 설명합니다.",
+  title: "서비스 소개 — AI 중고 판매글 작성기 | Magic Seller",
+  description: "Magic Seller가 어떤 문제를 해결하는지, 어떤 방식으로 당근마켓, 중고나라, 번개장터 판매글을 생성하는지 설명합니다. AI 비전 기술 기반 중고거래 혁신.",
+  keywords: ["매직셀러 소개", "AI 판매글 작성", "당근마켓 자동 글쓰기", "중고나라 AI", "번개장터 글쓰기 프로그램"],
+  alternates: {
+    canonical: `${siteUrl}/about`,
+  },
+  openGraph: {
+    title: "서비스 소개 | Magic Seller",
+    description: "사진 한 장으로 중고거래 판매글을 마법처럼 완성하는 Magic Seller의 미션과 기술을 소개합니다.",
+    url: `${siteUrl}/about`,
+    siteName: "Magic Seller",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    locale: "ko_KR",
+    type: "website",
+  },
 };
 
 export default function AboutPage() {
+  const aboutSchema = {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    name: "Magic Seller 서비스 소개",
+    description: "Magic Seller의 미션, AI 비전 기술, 그리고 향후 로드맵에 대한 소개입니다.",
+    url: `${siteUrl}/about`,
+    publisher: {
+      "@type": "Organization",
+      name: "Magic Seller",
+      url: siteUrl
+    }
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "홈", item: siteUrl },
+      { "@type": "ListItem", position: 2, name: "서비스 소개", item: `${siteUrl}/about` },
+    ],
+  };
+
   return (
+    <>
+      <Script id="about-schema" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutSchema) }} />
+      <Script id="about-breadcrumb" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
     <InfoPageShell
       eyebrow="Mission & Vision"
       title="Magic Seller: 중고 거래의 가치를 재정의하다"
@@ -21,7 +62,7 @@ export default function AboutPage() {
           이러한 불편함 때문에 많은 좋은 물건들이 집 안 구석에 방치되곤 합니다.
         </p>
         <p>
-          Magic Seller는 이 '등록의 허들'을 AI 기술로 낮추기 위해 시작되었습니다.
+          Magic Seller는 이 &lsquo;등록의 허들&rsquo;을 AI 기술로 낮추기 위해 시작되었습니다.
           단순한 자동 완성을 넘어, 판매자가 진심으로 자신의 물건을 소개하고 구매자가 필요한 정보를 한눈에 파악할 수 있는
           가장 효율적인 인터페이스를 연구합니다.
         </p>
@@ -30,11 +71,11 @@ export default function AboutPage() {
       <InfoSection title="2. 기술적 정수: Vision AI와 LLM의 결합">
         <p>
           매직셀러의 핵심 기술은 OpenAI의 최신 모델인 GPT-4o Vision을 기반으로 합니다.
-          단순히 이미지가 '무엇인지' 파악하는 단계를 넘어, 이미지 속 제품의 상태, 흠집의 유무, 브랜드 로고의 위치, 구성품의 개수까지 정밀하게 스캔합니다.
+          단순히 이미지가 &lsquo;무엇인지&rsquo; 파악하는 단계를 넘어, 이미지 속 제품의 상태, 흠집의 유무, 브랜드 로고의 위치, 구성품의 개수까지 정밀하게 스캔합니다.
         </p>
         <p>
           이렇게 추출된 시각 데이터는 사용자가 입력한 텍스트 데이터와 결합되어 거대 언어 모델(LLM)에 의해 정제됩니다.
-          이 과정에서 '당근마켓의 친근함', '중고나라의 상세함', '번개장터의 트렌디함'이라는 세 가지 페르소나를 각각 적용하여,
+          이 과정에서 &lsquo;당근마켓의 친근함&rsquo;, &lsquo;중고나라의 상세함&rsquo;, &lsquo;번개장터의 트렌디함&rsquo;이라는 세 가지 페르소나를 각각 적용하여,
           하나의 데이터로 세 개의 플랫폼에 최적화된 결과물을 동시에 뽑아내는 멀티-에이전트 시스템을 구축했습니다.
         </p>
       </InfoSection>
@@ -44,7 +85,7 @@ export default function AboutPage() {
           <div className="bg-white/5 border border-white/10 p-5 rounded-2xl">
             <h4 className="text-[#ffde00] font-bold mb-2">사실 기반의 정직함 (Data-Driven Honesty)</h4>
             <p className="text-sm leading-relaxed">
-              AI가 존재하지 않는 정보를 꾸며내는 '환각(Hallucination)' 현상을 억제하기 위해,
+              AI가 존재하지 않는 정보를 꾸며내는 &lsquo;환각(Hallucination)&rsquo; 현상을 억제하기 위해,
               보이는 사실과 입력된 사실만을 기반으로 글을 작성하도록 엄격한 프롬프트 엔지니어링을 적용하고 있습니다.
             </p>
           </div>
@@ -67,8 +108,8 @@ export default function AboutPage() {
 
       <InfoSection title="4. 향후 로드맵: Magic Seller의 내일">
         <p>
-          현재의 판매글 생성을 넘어, 향후에는 각 플랫폼의 '실시간 시세 데이터'를 연동하여 적정 판매 가격을 제안하고,
-          구매자와의 채팅 단계에서 사용할 수 있는 '매너 답변 가이드 AI'까지 확장할 계획입니다.
+          현재의 판매글 생성을 넘어, 향후에는 각 플랫폼의 &lsquo;실시간 시세 데이터&rsquo;를 연동하여 적정 판매 가격을 제안하고,
+          구매자와의 채팅 단계에서 사용할 수 있는 &lsquo;매너 답변 가이드 AI&rsquo;까지 확장할 계획입니다.
           Magic Seller는 당신의 중고 거래가 즐겁고 가치 있는 경험이 될 때까지 멈추지 않을 것입니다.
         </p>
       </InfoSection>
@@ -81,5 +122,6 @@ export default function AboutPage() {
         <p className="mt-4 font-bold text-lg text-[#ffde00]">Email: <a href="mailto:luvsoul@kakao.com" className="hover:underline">luvsoul@kakao.com</a></p>
       </InfoSection>
     </InfoPageShell>
+    </>
   );
 }

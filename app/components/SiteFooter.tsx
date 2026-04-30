@@ -56,6 +56,11 @@ export default function SiteFooter() {
           </nav>
         </div>
       </div>
+      <div className="mx-auto max-w-6xl border-t border-white/5 px-5 py-5 sm:px-8">
+        <p className="text-xs text-white/30 leading-relaxed">
+          이 사이트의 일부 링크는 쿠팡 파트너스 활동의 일환으로, 해당 링크를 통해 구매 시 일정액의 수수료를 제공받을 수 있습니다.
+        </p>
+      </div>
     </footer>
   );
 }

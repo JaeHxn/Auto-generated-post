@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 const principles = [
   "제목은 인위적인 수식어보다 브랜드, 모델명, 핵심 상태(예: 미개봉, 풀박스)를 명확히 포함하는 것을 원칙으로 합니다.",
@@ -52,9 +52,9 @@ export default function HomeEditorialSections() {
         <h2 className="text-2xl font-black text-white sm:text-4xl leading-tight">Magic Seller가 제시하는<br />새로운 중고 거래 표준</h2>
         <div className="mt-8 space-y-6 text-base leading-8 text-white/75 sm:text-lg">
           <p>
-            우리는 '글쓰기의 귀찮음' 때문에 좋은 물건이 가치를 인정받지 못하는 상황을 해결하고자 합니다.
+            우리는 &lsquo;글쓰기의 귀찮음&rsquo; 때문에 좋은 물건이 가치를 인정받지 못하는 상황을 해결하고자 합니다.
             단순히 몇 줄의 문장을 자동 생성하는 것을 넘어, 판매자와 구매자 사이의 정보 비대칭을 줄이고
-            서로가 기분 좋게 거래할 수 있는 '신뢰의 골격'을 만들어 드립니다.
+            서로가 기분 좋게 거래할 수 있는 &lsquo;신뢰의 골격&rsquo;을 만들어 드립니다.
           </p>
           <p>
             Magic Seller의 AI 알고리즘은 수만 건의 성공적인 거래 문구를 학습했습니다.
@@ -109,6 +109,73 @@ export default function HomeEditorialSections() {
           ))}
         </div>
       </div>
+
+      {/* 3.5. Rich Content Guide (AdSense SEO Optimization) */}
+      <article className="rounded-[28px] border border-white/10 bg-gradient-to-b from-[#1a1030] to-black p-8 sm:p-12 backdrop-blur-[20px]">
+        <header className="mb-8">
+          <div className="inline-flex rounded-full border border-[#ff6f0f]/30 bg-[#ff6f0f]/10 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-[#ffa366] mb-6">
+            Expert Guide
+          </div>
+          <h2 className="text-2xl font-black text-white sm:text-3xl leading-tight mb-4">
+            중고거래 전문가가 알려주는 100% 판매 성공 비법
+          </h2>
+          <p className="text-white/60">당근마켓, 중고나라, 번개장터에서 내 물건의 가치를 제대로 인정받는 실전 가이드</p>
+        </header>
+        
+        <div className="space-y-10 text-white/80 leading-relaxed text-sm sm:text-base">
+          <section>
+            <h3 className="text-xl font-bold text-[#ffde00] mb-4">1. 첫인상을 결정하는 '사진 촬영'의 기술</h3>
+            <p className="mb-3">온라인 중고거래에서 사진은 오프라인 매장의 쇼윈도와 같습니다. 구매자는 가장 먼저 사진의 퀄리티로 판매자의 신뢰도를 무의식중에 평가합니다.</p>
+            <ul className="list-disc pl-5 space-y-2 text-white/70">
+              <li><strong>자연광 활용하기:</strong> 실내 형광등 아래보다는 낮 시간대 창가에서 들어오는 자연광을 활용하세요. 제품의 실제 색상과 질감이 가장 정확하게 표현됩니다.</li>
+              <li><strong>배경은 최대한 단순하게:</strong> 복잡한 방 내부가 배경으로 나오면 제품에 대한 집중도가 떨어집니다. 깨끗한 책상 위나 단색 배경지, 또는 깔끔한 바닥에서 촬영하세요.</li>
+              <li><strong>하자 부위는 숨기지 말고 클로즈업:</strong> 기스나 찍힘 등 하자가 있는 부분은 솔직하게 확대해서 보여주세요. 오히려 '투명하게 공개하는 판매자'라는 인식을 주어 신뢰도가 급상승합니다.</li>
+              <li><strong>구성품 전체 샷 필수:</strong> 박스, 영수증, 케이블 등 모든 구성품을 한 번에 모아놓고 찍은 '풀샷'이 첫 번째 사진으로 가장 좋습니다.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3 className="text-xl font-bold text-[#ffde00] mb-4">2. 구매 확률을 3배 높이는 '본문 작성' 공식</h3>
+            <p className="mb-3">글쓰기가 막막하다면 다음의 4단계 구조를 기억하세요. Magic Seller AI 역시 이 검증된 구조를 기반으로 작동합니다.</p>
+            <ul className="list-disc pl-5 space-y-2 text-white/70">
+              <li><strong>핵심 정보 전면 배치:</strong> 구매처, 구매 시기, 정품 여부, AS 잔여 기간을 글의 가장 상단에 배치하세요. 구매자가 가장 궁금해하는 정보입니다.</li>
+              <li><strong>스토리텔링 결합:</strong> "돈이 필요해서 팝니다" 보다는 "새 모델로 기변하게 되어 소중히 쓰던 물건을 내놓습니다"가 낫습니다. 물건을 아껴 썼다는 인상을 줍니다.</li>
+              <li><strong>명확한 거래 조건:</strong> 직거래 선호 지역(구체적인 지하철역이나 건물명), 택배 가능 여부, 네고(가격 절충) 가능 여부를 단호하되 정중하게 명시하세요. 불필요한 감정 소모를 줄여줍니다.</li>
+              <li><strong>검색어 최적화(SEO):</strong> 본문 하단에는 제품명과 연관된 동의어나 오타(예: 에어팟, 에어팟프로, 에어팟 프로 2세대)를 자연스럽게 태그로 달아주어 검색 노출 확률을 높입니다.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3 className="text-xl font-bold text-[#ffde00] mb-4">3. 플랫폼별 맞춤 타겟팅 전략</h3>
+            <p className="mb-3">같은 물건이라도 플랫폼의 특성에 따라 접근 방식을 달리해야 합니다.</p>
+            <div className="bg-white/5 rounded-xl p-6 mt-4 border border-white/10">
+              <h4 className="font-bold text-[#ff6f0f] mb-2">🥕 당근마켓 (지역 기반)</h4>
+              <p className="text-sm text-white/70 mb-4">친근함이 무기입니다. "동네 이웃분과 기분 좋게 거래하고 싶어요" 같은 멘트가 효과적입니다. 무거운 가구나 직거래가 필수인 제품 판매에 가장 적합합니다.</p>
+              
+              <h4 className="font-bold text-[#00c9ff] mb-2">📦 중고나라 (전국 기반, 방대한 트래픽)</h4>
+              <p className="text-sm text-white/70 mb-4">정보의 정확성과 안전결제가 핵심입니다. 사기 피해를 걱정하는 구매자가 많으므로 '안전결제 환영', '직접 촬영한 인증샷', '과거 거래 내역' 등을 어필하는 것이 좋습니다.</p>
+              
+              <h4 className="font-bold text-[#8c52ff] mb-2">⚡ 번개장터 (MZ/Z세대, 취향 기반)</h4>
+              <p className="text-sm text-white/70">전자기기, 패션, 스니커즈, 아이돌 굿즈 등 한정판이나 트렌디한 아이템 판매에 최적화되어 있습니다. 해시태그를 최대한 활용하고, 트렌디한 용어(미시착 새상품, 극미중고 등)를 적절히 섞어 쓰는 것이 유리합니다.</p>
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-xl font-bold text-[#ffde00] mb-4">4. 가격 책정의 심리학</h3>
+            <p className="mb-3">적절한 가격 책정이야말로 빠른 판매의 핵심입니다.</p>
+            <ul className="list-disc pl-5 space-y-2 text-white/70">
+              <li><strong>시세 하위 10% 공략:</strong> 빠른 처분이 목적이라면 현재 검색되는 동일 상태 제품들의 하위 10% 가격에 맞추세요. 당일 판매 확률이 압도적으로 높습니다.</li>
+              <li><strong>네고 마진 포함하기:</strong> 구매자는 깎는 재미를 원합니다. 목표 가격이 10만 원이라면 11만 원에 올리고 "쿨거래 시 1만 원 네고해 드립니다"라고 제안하는 것이 심리적으로 더 큰 만족감을 줍니다.</li>
+              <li><strong>끝자리 9의 마법:</strong> 100,000원 보다는 99,000원이 심리적으로 훨씬 저렴하게 느껴집니다. 대형 마트의 가격표 전략을 중고거래에도 적용해 보세요.</li>
+            </ul>
+          </section>
+
+          <div className="mt-8 p-6 bg-gradient-to-r from-[#ff416c]/20 to-[#8c52ff]/20 rounded-xl border border-white/10">
+            <p className="text-sm font-bold text-white mb-2">💡 Magic Seller를 활용한 초간단 팁</p>
+            <p className="text-sm text-white/70">이 모든 복잡한 과정과 전략을 일일이 신경 쓰기 힘들다면? 제품 사진 한 장만 찍고 Magic Seller에게 맡겨보세요. AI가 위에서 언급한 모든 판매 심리학과 플랫폼별 특성을 반영하여 완벽한 초안을 단 10초 만에 작성해 드립니다.</p>
+          </div>
+        </div>
+      </article>
 
       {/* 4. Navigation & SEO Hub */}
       <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-[#8c52ff]/10 to-[#ff6f0f]/10 p-8 sm:p-12 backdrop-blur-[20px]">

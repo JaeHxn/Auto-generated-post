@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Script from "next/script";
@@ -50,21 +50,21 @@ const CREDIT_OPTIONS: CreditOption[] = [
         name: "10크레딧 충전",
         price: 1.5,
         credits: 10,
-        currency: "USD",
+        currency: "USD" as const,
     },
     {
         id: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_50?.trim() ?? "",
         name: "50크레딧 충전 (10% 할인)",
         price: 6.5,
         credits: 50,
-        currency: "USD",
+        currency: "USD" as const,
     },
     {
         id: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_100?.trim() ?? "",
         name: "100크레딧 충전 (20% 할인)",
         price: 12.0,
         credits: 100,
-        currency: "USD",
+        currency: "USD" as const,
     },
 ].filter((option) => option.id.length > 0);
 

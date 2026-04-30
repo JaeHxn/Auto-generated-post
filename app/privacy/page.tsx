@@ -1,15 +1,31 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import InfoPageShell, { InfoSection } from "../components/InfoPageShell";
 
+import Script from "next/script";
+
+const siteUrl = "https://daangn-auto-post.pages.dev";
+
 export const metadata: Metadata = {
-  title: "개인정보 처리방침",
+  title: "개인정보 처리방침 | Magic Seller",
   description: "Magic Seller의 개인정보 수집 항목, 이용 목적, 광고 및 쿠키 사용 안내를 설명합니다.",
+  alternates: { canonical: `${siteUrl}/privacy` },
 };
 
 const lastUpdated = "2026-03-08";
 
 export default function PrivacyPage() {
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "홈", item: siteUrl },
+      { "@type": "ListItem", position: 2, name: "개인정보 처리방침", item: `${siteUrl}/privacy` },
+    ],
+  };
+
   return (
+    <>
+      <Script id="privacy-breadcrumb" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
     <InfoPageShell
       eyebrow="Privacy"
       title="개인정보 처리방침"
@@ -83,5 +99,6 @@ export default function PrivacyPage() {
         <p className="mt-2 text-xs text-white/50">최종 업데이트: {lastUpdated} (공고일: 2026-03-08)</p>
       </InfoSection>
     </InfoPageShell>
+    </>
   );
 }

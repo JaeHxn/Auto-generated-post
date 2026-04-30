@@ -1,10 +1,15 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
 import InfoPageShell, { InfoSection } from "../components/InfoPageShell";
 
+import Script from "next/script";
+
+const siteUrl = "https://daangn-auto-post.pages.dev";
+
 export const metadata: Metadata = {
-  title: "이용 안내",
+  title: "이용 안내 센터 | Magic Seller",
   description: "Magic Seller의 운영 정보, 결제, 정책, 문의 링크를 한 번에 확인할 수 있는 안내 페이지입니다.",
+  alternates: { canonical: `${siteUrl}/legal` },
 };
 
 const cards = [
@@ -36,7 +41,18 @@ const cards = [
 ];
 
 export default function LegalPage() {
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "홈", item: siteUrl },
+      { "@type": "ListItem", position: 2, name: "이용 안내 센터", item: `${siteUrl}/legal` },
+    ],
+  };
+
   return (
+    <>
+      <Script id="legal-breadcrumb" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
     <InfoPageShell
       eyebrow="Legal"
       title="이용 안내"
@@ -62,5 +78,6 @@ export default function LegalPage() {
         ))}
       </section>
     </InfoPageShell>
+    </>
   );
 }

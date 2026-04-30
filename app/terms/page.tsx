@@ -1,15 +1,31 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import InfoPageShell, { InfoSection } from "../components/InfoPageShell";
 
+import Script from "next/script";
+
+const siteUrl = "https://daangn-auto-post.pages.dev";
+
 export const metadata: Metadata = {
-  title: "이용약관",
+  title: "이용약관 | Magic Seller",
   description: "Magic Seller의 서비스 이용 조건, 결제 및 환불 기준, 사용자 책임 범위를 안내합니다.",
+  alternates: { canonical: `${siteUrl}/terms` },
 };
 
 const lastUpdated = "2026-03-08";
 
 export default function TermsPage() {
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "홈", item: siteUrl },
+      { "@type": "ListItem", position: 2, name: "이용약관", item: `${siteUrl}/terms` },
+    ],
+  };
+
   return (
+    <>
+      <Script id="terms-breadcrumb" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
     <InfoPageShell
       eyebrow="Terms"
       title="이용약관"
@@ -55,5 +71,6 @@ export default function TermsPage() {
         <p>최종 업데이트: {lastUpdated}</p>
       </InfoSection>
     </InfoPageShell>
+    </>
   );
 }

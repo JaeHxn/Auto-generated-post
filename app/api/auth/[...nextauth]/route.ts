@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { authRuntimeConfig, handlers } from "@/auth";
 
 export const runtime = "edge";
@@ -13,7 +13,7 @@ function configErrorResponse() {
     );
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
     if (!authRuntimeConfig.enabled) {
         const pathname = new URL(request.url).pathname;
 
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     return handlers.GET(request);
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     if (!authRuntimeConfig.enabled) {
         return configErrorResponse();
     }

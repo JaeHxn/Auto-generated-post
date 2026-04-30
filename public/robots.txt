@@ -1,4 +1,37 @@
 User-agent: *
 Allow: /
 
+# 크롤링 불필요한 API·내부 경로 차단
+Disallow: /api/
+Disallow: /_next/
+Disallow: /api/webhooks/
+
+# 주요 크롤러별 크롤 딜레이 (서버 부하 방지)
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 2
+
+User-agent: NaverBot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Yeti
+Allow: /
+Crawl-delay: 1
+
+# 악성 봇 차단
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+# 사이트맵
 Sitemap: https://daangn-auto-post.pages.dev/sitemap.xml

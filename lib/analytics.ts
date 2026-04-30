@@ -15,7 +15,7 @@ export type TrackingEvent =
     | "roulette_spin"
     | "payment_modal_open";
 
-export async function trackEvent(eventName: TrackingEvent, metadata: Record<string, any> = {}) {
+export async function trackEvent(eventName: TrackingEvent, metadata: Record<string, unknown> = {}) {
     try {
         if (!supabase) return;
 
